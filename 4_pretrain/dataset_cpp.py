@@ -1,54 +1,20 @@
 import torch
 import random
+import cppyy
 
+
+# Load the C++ header
+cppyy.include('span_masking.h')
 
 class SpanMaskingStrategy:
     def __init__(self, n_special_tokens, random_p, keep_p, vocab_size, mask_token_id):
-        self.n_special_tokens = n_special_tokens
-        self.random_p = random_p
-        self.keep_p = keep_p
-        self.vocab_size = vocab_size
-        self.mask_token_id = mask_token_id
-        self.max_span_length = 3
+        self.strategy = cppyy.gbl.SpanMaskingStrategy(n_special_tokens, random_p, keep_p, vocab_size, mask_token_id)
 
     def __call__(self, tokens, counts=None):
-        length = tokens.size(0)
-
-        span_lengths = torch.randint(1, self.max_span_length + 1, size=(length,), dtype=torch.int)
-        cumsum = torch.cumsum(span_lengths, dim=0)
-        
-        total_length = cumsum[-1].item()
-        indices = torch.zeros(total_length, dtype=torch.int)
-        indices[cumsum - span_lengths] = torch.arange(length, dtype=torch.int)
-        indices = torch.cummax(indices, dim=0)[0]
-        indices = indices[:length]
-
-        max_index = indices[-1].item()
-        span_random_numbers_1, span_random_numbers_2 = torch.rand([(max_index + 1) * 2]).chunk(2)
-        
-        mask_ratios = span_random_numbers_1[indices]
-
-        if counts is not None:
-            counts = counts.float()
-            counts[tokens < self.n_special_tokens] = float('-inf')
-            counts_p = torch.nn.functional.softmax(counts, dim=0)
-            mask_ratios = mask_ratios * counts_p
-
-        mask_ratios[tokens < self.n_special_tokens] = float('inf')
-
-        replacement_p = span_random_numbers_2[indices]
-        random_mask = replacement_p < self.random_p
-
-        replacement_tokens = tokens.clone()
-        replacement_tokens[random_mask] = torch.randint(
-            low=self.n_special_tokens,
-            high=self.vocab_size,
-            size=[random_mask.sum().item()],
-            dtype=torch.long
-        )
-        replacement_tokens[replacement_p > (self.random_p + self.keep_p)] = self.mask_token_id
-
-        return mask_ratios, replacement_tokens
+        tokens_list = tokens.tolist()
+        counts_list = counts.tolist() if counts is not None else None
+        mask_ratios, replacement_tokens = self.strategy(tokens_list, counts_list)
+        return torch.tensor(mask_ratios), torch.tensor(replacement_tokens)
 
 
 class RandomIndex:

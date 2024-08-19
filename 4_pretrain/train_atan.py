@@ -17,7 +17,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel
 
-from lamb import Lamb
+from lamb_atan import Lamb
 from model import Bert
 from utils import cosine_schedule_with_warmup_cooldown, is_main_process, get_rank, seed_everything, get_world_size
 from dataset import Dataset, ValidationDataset
@@ -33,7 +33,7 @@ def parse_arguments():
 
     parser.add_argument("--train_path", default="/pfs/lustrep1/scratch/project_465000144/dasamuel/babylm-v2/data/train_100M_tokenized.bin", type=str, help="Path to the training data.")
     parser.add_argument("--valid_path", default="/pfs/lustrep1/scratch/project_465000144/dasamuel/babylm-v2/data/dev_100M_tokenized.bin", type=str, help="Path to the validation data.")
-    parser.add_argument("--name", default="initial_run", type=str, help="Name of the run.")
+    parser.add_argument("--name", default="lamb_atan", type=str, help="Name of the run.")
     parser.add_argument("--config_file", default="/pfs/lustrep1/scratch/project_465000144/dasamuel/babylm-v2/configs/xs.json", type=str, help="The BERT model config")
     parser.add_argument("--tokenizer_path", default="/pfs/lustrep1/scratch/project_465000144/dasamuel/babylm-v2/tokenizer_100M.json", type=str, help="Path to the tokenizer.")
     parser.add_argument("--output_dir", default="/pfs/lustrep1/scratch/project_465000144/dasamuel/babylm-v2/checkpoints", type=str, help="The output directory where the model checkpoints will be written.")
@@ -54,7 +54,6 @@ def parse_arguments():
     parser.add_argument("--mask_random_p", default=0.1, type=float, help="Masking probability.")
     parser.add_argument("--mask_keep_p", default=0.1, type=float, help="Masking probability.")
     parser.add_argument("--weight_decay", default=0.1, type=float, help="Short sequence probability.")
-    parser.add_argument("--optimizer_eps", default=1e-8, type=float, help="Optimizer epsilon.")
     parser.add_argument("--optimizer_beta1", default=0.9, type=float, help="Optimizer beta1.")
     parser.add_argument("--optimizer_beta2", default=0.98, type=float, help="Optimizer beta2.")
     parser.add_argument("--max_gradient", default=2.0, type=float, help="Max value for gradient clipping.")
@@ -152,8 +151,7 @@ def prepare_model_and_optimizer(args):
         optimizer = Lamb(
             optimizer_grouped_parameters,
             args.learning_rate,
-            betas=(args.optimizer_beta1, args.optimizer_beta2),
-            eps=args.optimizer_eps,
+            betas=(args.optimizer_beta1, args.optimizer_beta2)
         )
  
     scheduler = cosine_schedule_with_warmup_cooldown(
@@ -313,7 +311,7 @@ def load_datasets(args, tokenizer, epoch, global_step, train_dataloader, valid_d
             train_data,
             shuffle=True,
             batch_size=batch_size,
-            num_workers=4,  # non-zero num_workers causes segmenation fault
+            num_workers=0,  # non-zero num_workers causes segmenation fault
             generator=torch.Generator().manual_seed(train_seed),
             drop_last=True,
             pin_memory=True,
@@ -336,8 +334,6 @@ def load_datasets(args, tokenizer, epoch, global_step, train_dataloader, valid_d
 
 
 if __name__ == "__main__":
-    torch.multiprocessing.set_start_method('spawn')
-
     args = parse_arguments()
 
     tokenizer = Tokenizer.from_file(args.tokenizer_path)

@@ -15,8 +15,8 @@ class Bert(nn.Module):
         self.classifier = MaskClassifier(config, self.embedding.word_embedding.weight)
 
     def get_contextualized(self, input_ids, attention_mask):
-        static_embeddings, relative_embedding = self.embedding(input_ids)
-        contextualized_embeddings = self.transformer(static_embeddings, attention_mask.unsqueeze(1), relative_embedding)
+        static_embeddings = self.embedding(input_ids)
+        contextualized_embeddings = self.transformer(static_embeddings, attention_mask.unsqueeze(1))
         return contextualized_embeddings
 
     def forward(self, input_ids, attention_mask, masked_lm_labels=None):
@@ -48,12 +48,12 @@ class Encoder(nn.Module):
 
         self.activation_checkpointing = activation_checkpointing
 
-    def forward(self, hidden_states, attention_mask, relative_embedding):
+    def forward(self, hidden_states, attention_mask):
         for layer in self.layers:
             if self.activation_checkpointing:
-                hidden_states = checkpoint.checkpoint(layer, hidden_states, attention_mask, relative_embedding)
+                hidden_states = checkpoint.checkpoint(layer, hidden_states, attention_mask)
             else:
-                hidden_states = layer(hidden_states, attention_mask, relative_embedding)
+                hidden_states = layer(hidden_states, attention_mask)
 
         return hidden_states
 
@@ -91,8 +91,8 @@ class EncoderLayer(nn.Module):
         self.attention = Attention(config)
         self.mlp = FeedForward(config)
 
-    def forward(self, x, padding_mask, relative_embedding):
-        x = x + self.attention(x, padding_mask, relative_embedding)
+    def forward(self, x, padding_mask):
+        x = x + self.attention(x, padding_mask)
         x = x + self.mlp(x)
         return x
 
@@ -141,8 +141,78 @@ class MaskedSoftmax(torch.autograd.Function):
         output, = self.saved_tensors
         inputGrad = _softmax_backward_data(grad_output, output, self.dim, output.dtype)
         return inputGrad, None, None
+    
 
+class DynamicPosition(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.pos_projection = nn.Linear(config.hidden_size, config.num_attention_heads, bias=True)
+        self.q_relative_embedding = nn.Parameter(torch.empty(2 * config.position_bucket_size - 1, config.num_attention_heads, config.hidden_size // config.num_attention_heads))
+        self.k_relative_embedding = nn.Parameter(torch.empty(2 * config.position_bucket_size - 1, config.num_attention_heads, config.hidden_size // config.num_attention_heads))
 
+        self.bucket_size = config.position_bucket_size
+        self.max_position = config.max_position_embeddings
+        self.scale = 1.0 / math.sqrt(3 * config.hidden_size / config.num_attention_heads)
+
+        self.initialize(config.hidden_size)
+
+    def initialize(self, hidden_size):
+        std = math.sqrt(2.0 / (5.0 * hidden_size))
+        nn.init.trunc_normal_(self.q_relative_embedding, mean=0.0, std=std, a=-2*std, b=2*std)
+        nn.init.trunc_normal_(self.k_relative_embedding, mean=0.0, std=std, a=-2*std, b=2*std)
+        nn.init.trunc_normal_(self.pos_projection.weight, mean=0.0, std=std, a=-2*std, b=2*std)
+        self.pos_projection.bias.data.fill_(0.0)
+
+    def forward(self, hidden_states, query, key):
+        floor_buckets, ceil_buckets, delta_weight = self.create_position_buckets(hidden_states)  # shape: [B, H, T_q, T_k]
+
+        query_pos_bias = torch.einsum("lhd,qbhd->bhql", self.k_relative_embedding * self.scale, query)  # shape: [B, H, T_q, L]
+        key_pos_bias = torch.einsum("lhd,kbhd->bhlk", self.q_relative_embedding, key * self.scale)  # shape: [B, H, L, T_k]
+
+        floor_query_pos_bias = torch.gather(query_pos_bias, 3, floor_buckets)  # shape: [B, H, T_q, T_k]
+        ceil_query_pos_bias = torch.gather(query_pos_bias, 3, ceil_buckets)  # shape: [B, H, T_q, T_k]
+        floor_key_pos_bias = torch.gather(key_pos_bias, 2, floor_buckets)  # shape: [B, H, T_q, T_k]
+        ceil_key_pos_bias = torch.gather(key_pos_bias, 2, ceil_buckets)  # shape: [B, H, T_q, T_k]
+
+        query_pos_bias = floor_query_pos_bias + delta_weight * (ceil_query_pos_bias - floor_query_pos_bias)  # shape: [B, H, T_q, T_k]
+        key_pos_bias = floor_key_pos_bias + delta_weight * (ceil_key_pos_bias - floor_key_pos_bias)  # shape: [B, H, T_q, T_k]
+
+        return query_pos_bias, key_pos_bias
+        
+    def create_position_buckets(self, hidden_states):
+        soft_positions = self.pos_projection(hidden_states).sigmoid()  # shape: [T, B, H]
+        soft_positions = soft_positions * 1.2 - 0.1  # shape: [T, B, H]
+        soft_positions = soft_positions.permute(1, 2, 0)  # shape: [B, H, T]
+        cum_soft_positions = soft_positions.cumsum(dim=-1)  # shape: [B, H, T]
+
+        soft_position_indices = cum_soft_positions.unsqueeze(2) - cum_soft_positions.unsqueeze(3)  # shape: [B, H, T, T]
+        soft_position_indices = soft_position_indices + self.static_position_bias(hidden_states)  # shape: [B, H, T, T]
+        floor_position_indices = soft_position_indices.floor().long()  # shape: [B, H, T, T]
+        ceil_position_indices = soft_position_indices.ceil().long()  # shape: [B, H, T, T]
+        delta_position_indices = soft_position_indices - floor_position_indices  # shape: [B, H, T, T]
+
+        floor_position_buckets = self.make_log_bucket_position(floor_position_indices)  # shape: [B, H, T, T]
+        ceil_position_buckets = self.make_log_bucket_position(ceil_position_indices)  # shape: [B, H, T, T]
+
+        return floor_position_buckets, ceil_position_buckets, delta_position_indices
+
+    def static_position_bias(self, hidden_states):
+        tril = torch.tril(torch.ones(hidden_states.size(0), hidden_states.size(0), device=hidden_states.device), diagonal=-1)  # shape: [T, T]
+        triu = torch.triu(torch.ones(hidden_states.size(0), hidden_states.size(0), device=hidden_states.device), diagonal=1)  # shape: [T, T]
+        position_bias = triu - tril  # shape: [T, T]
+        position_bias = position_bias.view(1, 1, hidden_states.size(0), hidden_states.size(0))  # shape: [1, 1, T, T]
+        return position_bias
+    
+    def make_log_bucket_position(self, relative_pos):
+        sign = torch.sign(relative_pos)
+        mid = self.bucket_size // 2
+        abs_pos = torch.where((relative_pos < mid) & (relative_pos > -mid), mid - 1, torch.abs(relative_pos).clamp(max=self.max_position - 1))
+        log_pos = torch.ceil(torch.log(abs_pos / mid) / math.log((self.max_position - 1) / mid) * (mid - 1)).int() + mid
+        bucket_pos = torch.where(abs_pos <= mid, relative_pos, log_pos * sign).long()
+        bucket_pos = self.bucket_size - 1 + bucket_pos
+        return bucket_pos
+
+        
 class Attention(nn.Module):
     def __init__(self, config):
         super().__init__()
@@ -161,25 +231,15 @@ class Attention(nn.Module):
         self.out_proj = nn.Linear(config.hidden_size, config.hidden_size, bias=True)
 
         self.pre_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=False)
+        self.q_layer_norm = nn.LayerNorm(self.head_size, config.layer_norm_eps, elementwise_affine=True)
+        self.k_layer_norm = nn.LayerNorm(self.head_size, config.layer_norm_eps, elementwise_affine=True)
         self.post_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=True)
 
-        position_indices = torch.arange(config.max_position_embeddings, dtype=torch.long).unsqueeze(1) \
-            - torch.arange(config.max_position_embeddings, dtype=torch.long).unsqueeze(0)
-        position_indices = self.make_log_bucket_position(position_indices, config.position_bucket_size, config.max_position_embeddings)
-        position_indices = config.position_bucket_size - 1 + position_indices
-        self.register_buffer("position_indices", position_indices, persistent=True)
+        self.dynamic_position = DynamicPosition(config)
 
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
         self.scale = 1.0 / math.sqrt(3 * self.head_size)
         self.initialize()
-
-    def make_log_bucket_position(self, relative_pos, bucket_size, max_position):
-        sign = torch.sign(relative_pos)
-        mid = bucket_size // 2
-        abs_pos = torch.where((relative_pos < mid) & (relative_pos > -mid), mid - 1, torch.abs(relative_pos).clamp(max=max_position - 1))
-        log_pos = torch.ceil(torch.log(abs_pos / mid) / math.log((max_position-1) / mid) * (mid - 1)).int() + mid
-        bucket_pos = torch.where(abs_pos <= mid, relative_pos, log_pos * sign).long()
-        return bucket_pos
 
     def initialize(self):
         std = math.sqrt(2.0 / (5.0 * self.hidden_size))
@@ -190,38 +250,26 @@ class Attention(nn.Module):
         self.in_proj_v.bias.data.zero_()
         self.out_proj.bias.data.zero_()
 
-    def forward(self, hidden_states, attention_mask, relative_embedding):
+    def forward(self, hidden_states, attention_mask):
         key_len, batch_size, _ = hidden_states.size()
         query_len = key_len
-
-        if self.position_indices.size(0) < query_len:
-            position_indices = torch.arange(query_len, dtype=torch.long).unsqueeze(1) \
-                - torch.arange(query_len, dtype=torch.long).unsqueeze(0)
-            position_indices = self.make_log_bucket_position(position_indices, self.config.position_bucket_size, 512)
-            position_indices = self.config.position_bucket_size - 1 + position_indices
-            self.register_buffer("position_indices", position_indices.to(hidden_states.device), persistent=True)
 
         hidden_states = self.pre_layer_norm(hidden_states)
         query, key = self.in_proj_qk(hidden_states).chunk(2, dim=2)  # shape: [T, B, D]
         value = self.in_proj_v(hidden_states)  # shape: [T, B, D]
 
-        pos = self.in_proj_qk(self.dropout(relative_embedding))  # shape: [2T-1, 2D]
-        pos = F.embedding(self.position_indices[:query_len, :key_len], pos)  # shape: [T, T, 2D]
-        query_pos, key_pos = pos.chunk(2, dim=-1)
-        query_pos = query_pos.view(query_len, key_len, self.num_heads, self.head_size)
-        key_pos = key_pos.view(query_len, key_len, self.num_heads, self.head_size)
-
-        query = query.reshape(query_len, batch_size * self.num_heads, self.head_size).transpose(0, 1)
-        key = key.reshape(key_len, batch_size * self.num_heads, self.head_size).transpose(0, 1)
+        query = self.q_layer_norm(query.reshape(query_len, batch_size, self.num_heads, self.head_size))
+        key = self.k_layer_norm(key.reshape(key_len, batch_size, self.num_heads, self.head_size))
         value = value.view(key_len, batch_size * self.num_heads, self.head_size).transpose(0, 1)
 
+        query_pos, key_pos = self.dynamic_position(hidden_states, query, key)
+
+        query = query.flatten(1, 2).transpose(0, 1)
+        key = key.flatten(1, 2).transpose(0, 1)
         attention_scores = torch.bmm(query, key.transpose(1, 2) * self.scale)
 
-        query = query.view(batch_size, self.num_heads, query_len, self.head_size)
-        key = key.view(batch_size, self.num_heads, query_len, self.head_size)
         attention_scores = attention_scores.view(batch_size, self.num_heads, query_len, key_len)
-        attention_scores.add_(torch.einsum("bhqd,qkhd->bhqk", query, key_pos * self.scale))
-        attention_scores.add_(torch.einsum("bhkd,qkhd->bhqk", key * self.scale, query_pos))
+        attention_scores.add_(query_pos + key_pos)
 
         attention_probs = MaskedSoftmax.apply(attention_scores, attention_mask, -1)
 
@@ -244,17 +292,12 @@ class Embedding(nn.Module):
         self.word_layer_norm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps, elementwise_affine=False)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
 
-        self.relative_embedding = nn.Parameter(torch.empty(2 * config.position_bucket_size - 1, config.hidden_size))
-        self.relative_layer_norm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
-
         self.initialize()
 
     def initialize(self):
         std = math.sqrt(2.0 / (5.0 * self.hidden_size))
-        nn.init.trunc_normal_(self.relative_embedding, mean=0.0, std=std, a=-2*std, b=2*std)
         nn.init.trunc_normal_(self.word_embedding.weight, mean=0.0, std=std, a=-2*std, b=2*std)
 
     def forward(self, input_ids):
         word_embedding = self.dropout(self.word_layer_norm(self.word_embedding(input_ids)))
-        relative_embeddings = self.relative_layer_norm(self.relative_embedding)
-        return word_embedding, relative_embeddings
+        return word_embedding

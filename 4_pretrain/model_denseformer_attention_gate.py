@@ -37,25 +37,87 @@ class Bert(nn.Module):
         return loss, accuracy, z_loss, num_tokens
 
 
+class InPlaceSetSlice(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, full_tensor, last_slice, x_idx, x_val):
+        full_tensor[x_idx] = x_val
+        ctx.x_idx = x_idx
+        ret = torch.Tensor().to(full_tensor.device)
+        ret.set_(full_tensor[:x_idx + 1])
+        return ret
+
+    @staticmethod
+    def backward(ctx, grad_out):
+        if ctx.x_idx == 0:
+            return None, None, None, grad_out[ctx.x_idx]
+        else:
+            return None, grad_out[:ctx.x_idx], None, grad_out[ctx.x_idx]
+
+
+def apply_inplace_set(x_acc, x_idx, x_val):
+    full_tensor, last_slice = x_acc
+    new_slice = InPlaceSetSlice.apply(full_tensor, last_slice, x_idx, x_val)
+    return full_tensor, new_slice
+
+
+class DWAModules(torch.nn.Module):
+    def __init__(self, hidden_size, n_blocks):
+        super().__init__()
+        self.n_blocks = n_blocks
+        self.alphas = nn.ModuleList([
+            nn.Sequential(
+                nn.LayerNorm(hidden_size, 1e-7, elementwise_affine=False),
+                nn.Linear(hidden_size, i + 2, bias=True)
+            )
+            for i in range(n_blocks)
+        ])
+        self.accumulator = None
+        self._init_weights()
+
+    def _init_weights(self):
+        for module in self.alphas:
+            module[1].bias.data.zero_()
+            module[1].bias.data[-1] = 1.0
+            module[1].weight.data.zero_()
+
+    def init_accumulator(self, x):
+        self.accumulator = (torch.zeros((self.n_blocks + 1, *x.shape), device=x.device, dtype=x.dtype), None)
+        self.accumulator = apply_inplace_set(self.accumulator, 0, x)
+
+    def forward(self, x, block_idx):
+        assert self.accumulator is not None, "`init_accumulator(x)` needs to be called first"
+        self.accumulator = apply_inplace_set(
+            self.accumulator, 
+            block_idx + 1,
+            x
+        )
+        x = torch.einsum("tbk,ktbd->tbd", self.alphas[block_idx](x), self.accumulator[1])
+        return x
+
+
 class Encoder(nn.Module):
     def __init__(self, config, activation_checkpointing=False):
         super().__init__()
-        self.layers = nn.ModuleList([EncoderLayer(config) for _ in range(config.num_hidden_layers)])
+        self.attention_layers = nn.ModuleList([Attention(config) for _ in range(config.num_hidden_layers)])
+        self.mlp_layers = nn.ModuleList([FeedForward(config) for _ in range(config.num_hidden_layers)])
+        self.dwa_modules = DWAModules(config.hidden_size, config.num_hidden_layers * 2)
 
-        for i, layer in enumerate(self.layers):
-            layer.mlp.mlp[1].weight.data *= math.sqrt(1.0 / (2.0 * (1 + i)))
-            layer.mlp.mlp[-2].weight.data *= math.sqrt(1.0 / (2.0 * (1 + i)))
+        for i, layer in enumerate(self.mlp_layers):
+            layer.mlp[1].weight.data *= math.sqrt(1.0 / (2.0 * (1 + i)))
+            layer.mlp[-2].weight.data *= math.sqrt(1.0 / (2.0 * (1 + i)))
 
         self.activation_checkpointing = activation_checkpointing
 
-    def forward(self, hidden_states, attention_mask, relative_embedding):
-        for layer in self.layers:
-            if self.activation_checkpointing:
-                hidden_states = checkpoint.checkpoint(layer, hidden_states, attention_mask, relative_embedding)
-            else:
-                hidden_states = layer(hidden_states, attention_mask, relative_embedding)
+    def forward(self, x, attention_mask, relative_embedding):
+        self.dwa_modules.init_accumulator(x)
+        for i, (attention_layer, mlp_layer) in enumerate(zip(self.attention_layers, self.mlp_layers)):
+            x = x + attention_layer(x, attention_mask, relative_embedding)
+            x = self.dwa_modules(x, block_idx=i * 2)
 
-        return hidden_states
+            x = x + mlp_layer(x)
+            x = self.dwa_modules(x, block_idx=i * 2 + 1)
+
+        return x
 
 
 class MaskClassifier(nn.Module):
@@ -82,18 +144,6 @@ class MaskClassifier(nn.Module):
         if masked_lm_labels is not None:
             x = torch.index_select(x.flatten(0, 1), 0, torch.nonzero(masked_lm_labels.flatten() != -100).squeeze())
         x = self.nonlinearity(x)
-        return x
-
-
-class EncoderLayer(nn.Module):
-    def __init__(self, config):
-        super().__init__()
-        self.attention = Attention(config)
-        self.mlp = FeedForward(config)
-
-    def forward(self, x, padding_mask, relative_embedding):
-        x = x + self.attention(x, padding_mask, relative_embedding)
-        x = x + self.mlp(x)
         return x
 
 
@@ -157,11 +207,11 @@ class Attention(nn.Module):
         self.head_size = config.hidden_size // config.num_attention_heads
 
         self.in_proj_qk = nn.Linear(config.hidden_size, 2*config.hidden_size, bias=True)
-        self.in_proj_v = nn.Linear(config.hidden_size, config.hidden_size, bias=True)
+        self.in_proj_vg = nn.Linear(config.hidden_size, 2*config.hidden_size, bias=True)
         self.out_proj = nn.Linear(config.hidden_size, config.hidden_size, bias=True)
 
         self.pre_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=False)
-        self.post_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=True)
+        self.post_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=False)
 
         position_indices = torch.arange(config.max_position_embeddings, dtype=torch.long).unsqueeze(1) \
             - torch.arange(config.max_position_embeddings, dtype=torch.long).unsqueeze(0)
@@ -184,10 +234,10 @@ class Attention(nn.Module):
     def initialize(self):
         std = math.sqrt(2.0 / (5.0 * self.hidden_size))
         nn.init.trunc_normal_(self.in_proj_qk.weight, mean=0.0, std=std, a=-2*std, b=2*std)
-        nn.init.trunc_normal_(self.in_proj_v.weight, mean=0.0, std=std, a=-2*std, b=2*std)
+        nn.init.trunc_normal_(self.in_proj_vg.weight, mean=0.0, std=std, a=-2*std, b=2*std)
         nn.init.trunc_normal_(self.out_proj.weight, mean=0.0, std=std, a=-2*std, b=2*std)
         self.in_proj_qk.bias.data.zero_()
-        self.in_proj_v.bias.data.zero_()
+        self.in_proj_vg.bias.data.zero_()
         self.out_proj.bias.data.zero_()
 
     def forward(self, hidden_states, attention_mask, relative_embedding):
@@ -203,7 +253,9 @@ class Attention(nn.Module):
 
         hidden_states = self.pre_layer_norm(hidden_states)
         query, key = self.in_proj_qk(hidden_states).chunk(2, dim=2)  # shape: [T, B, D]
-        value = self.in_proj_v(hidden_states)  # shape: [T, B, D]
+        value, gate = self.in_proj_vg(hidden_states).chunk(2, dim=2)  # shape: [T, B, D]
+        gate = F.gelu(gate)
+
 
         pos = self.in_proj_qk(self.dropout(relative_embedding))  # shape: [2T-1, 2D]
         pos = F.embedding(self.position_indices[:query_len, :key_len], pos)  # shape: [T, T, 2D]
@@ -213,7 +265,7 @@ class Attention(nn.Module):
 
         query = query.reshape(query_len, batch_size * self.num_heads, self.head_size).transpose(0, 1)
         key = key.reshape(key_len, batch_size * self.num_heads, self.head_size).transpose(0, 1)
-        value = value.view(key_len, batch_size * self.num_heads, self.head_size).transpose(0, 1)
+        value = value.reshape(key_len, batch_size * self.num_heads, self.head_size).transpose(0, 1)
 
         attention_scores = torch.bmm(query, key.transpose(1, 2) * self.scale)
 
@@ -228,8 +280,9 @@ class Attention(nn.Module):
         attention_probs = self.dropout(attention_probs)
         context = torch.bmm(attention_probs.flatten(0, 1), value)  # shape: [B*H, Q, D]
         context = context.transpose(0, 1).reshape(context.size(1), -1, self.hidden_size)  # shape: [Q, B, H*D]
-        context = self.out_proj(context)
+        context = context * gate
         context = self.post_layer_norm(context)
+        context = self.out_proj(context)
         context = self.dropout(context)
 
         return context

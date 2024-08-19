@@ -18,7 +18,7 @@ from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel
 
 from lamb import Lamb
-from model import Bert
+from model_qk_layernorm import Bert
 from utils import cosine_schedule_with_warmup_cooldown, is_main_process, get_rank, seed_everything, get_world_size
 from dataset import Dataset, ValidationDataset
 from model_logging import ModelLogger
@@ -33,14 +33,14 @@ def parse_arguments():
 
     parser.add_argument("--train_path", default="/pfs/lustrep1/scratch/project_465000144/dasamuel/babylm-v2/data/train_100M_tokenized.bin", type=str, help="Path to the training data.")
     parser.add_argument("--valid_path", default="/pfs/lustrep1/scratch/project_465000144/dasamuel/babylm-v2/data/dev_100M_tokenized.bin", type=str, help="Path to the validation data.")
-    parser.add_argument("--name", default="initial_run", type=str, help="Name of the run.")
-    parser.add_argument("--config_file", default="/pfs/lustrep1/scratch/project_465000144/dasamuel/babylm-v2/configs/xs.json", type=str, help="The BERT model config")
+    parser.add_argument("--name", default="base_qk_layernorm", type=str, help="Name of the run.")
+    parser.add_argument("--config_file", default="/pfs/lustrep1/scratch/project_465000144/dasamuel/babylm-v2/configs/base.json", type=str, help="The BERT model config")
     parser.add_argument("--tokenizer_path", default="/pfs/lustrep1/scratch/project_465000144/dasamuel/babylm-v2/tokenizer_100M.json", type=str, help="Path to the tokenizer.")
     parser.add_argument("--output_dir", default="/pfs/lustrep1/scratch/project_465000144/dasamuel/babylm-v2/checkpoints", type=str, help="The output directory where the model checkpoints will be written.")
     parser.add_argument("--optimizer", default="lamb", type=str)
     parser.add_argument("--seq_length", default=128, help="Sequence length for training.")
-    parser.add_argument("--batch_size", default=1_024, type=int, help="Total batch size for training per GPUs and per grad accumulation step.")
-    parser.add_argument("--learning_rate", default=2e-2, type=float, help="The initial learning rate for Adam.")
+    parser.add_argument("--batch_size", default=256, type=int, help="Total batch size for training per GPUs and per grad accumulation step.")
+    parser.add_argument("--learning_rate", default=1e-2, type=float, help="The initial learning rate for Adam.")
     parser.add_argument("--max_steps", default=31_250 // 4, type=int, help="Total number of training steps to perform.")
     parser.add_argument("--validate_every", default=1_000, type=int, help="Run validation after every X training shards.")
     parser.add_argument("--validation_steps", default=1, type=int, help="Run validation after every X training shards.")
@@ -60,6 +60,7 @@ def parse_arguments():
     parser.add_argument("--max_gradient", default=2.0, type=float, help="Max value for gradient clipping.")
     parser.add_argument('--mixed_precision', default=True, action=argparse.BooleanOptionalAction)
     parser.add_argument('--n_special_tokens', default=16, type=int, help="Number of special tokens.")
+    parser.add_argument('--z_loss_weight', default=1e-4, type=float, help="Weight for the z loss.")
     args = parser.parse_args()
 
     args.output_path = f"{args.output_dir}/{args.name}.bin"
@@ -198,27 +199,32 @@ def training_epoch(model, train_dataloader, valid_dataloader, optimizer, schedul
         input_ids, attention_mask, target_ids, mask_p = input_ids_, attention_mask_, target_ids_, mask_p_
         with torch.cuda.amp.autocast(args.mixed_precision, dtype=torch.bfloat16):
             with ModelLogger(enable=global_step % 100 == 0, module=model):
-                loss, accuracy = model(input_ids, attention_mask, target_ids)
+                loss, accuracy, z_loss, num_tokens = model(input_ids, attention_mask, target_ids)
 
         if local_step < num_steps - 1: 
             input_ids_, attention_mask_, target_ids_, mask_p_ = get_batch(train_dataloader, args.device, global_step)
 
-        loss.backward()
+        total_tokens = torch.tensor(num_tokens, device=args.device, dtype=torch.long)
+        torch.distributed.all_reduce(total_tokens, torch.distributed.ReduceOp.SUM)
+        weight = args.world_size * num_tokens / total_tokens
+
+        ((loss + args.z_loss_weight * z_loss) * weight).backward()
         grad_norm = nn.utils.clip_grad_norm_(model.parameters(), args.max_gradient)
 
         optimizer.step()
         scheduler.step()
 
         with torch.no_grad():
-            metrics = torch.stack([loss, accuracy, mask_p])
+            metrics = torch.stack([loss * weight, accuracy * weight, z_loss * weight, mask_p])
             torch.distributed.all_reduce(metrics, torch.distributed.ReduceOp.AVG)
-            loss, accuracy, mask_p = metrics.tolist()
+            loss, accuracy, z_loss, mask_p = metrics.tolist()
 
         if is_main_process():
             wandb.log(
                 {
                     "epoch": epoch,
                     "train/loss": loss,
+                    "train/z_loss": z_loss,
                     "train/perplexity": math.exp(loss),
                     "train/accuracy": accuracy * 100.0,
                     "stats/learning_rate": optimizer.param_groups[0]['lr'],
@@ -251,7 +257,7 @@ def training_epoch(model, train_dataloader, valid_dataloader, optimizer, schedul
 
 
 @torch.no_grad()
-def validation_epoch(model, valid_dataloader, epoch, args):
+def validation_epoch(model, valid_dataloader, epoch, args, commit=False):
     model = model.eval()
 
     losses, accuracies = [], []
@@ -261,12 +267,16 @@ def validation_epoch(model, valid_dataloader, epoch, args):
 
         with torch.cuda.amp.autocast(args.mixed_precision, dtype=torch.bfloat16):
             with ModelLogger(enable=global_step % 100 == 0, module=model):
-                loss, accuracy = model(input_ids, attention_mask, target_ids)
+                loss, accuracy, _, num_tokens = model(input_ids, attention_mask, target_ids)
 
         if local_step < args.validation_steps - 1:
             input_ids, attention_mask, target_ids, mask_p = get_batch(valid_dataloader, args.device, 0)
+
+        total_tokens = torch.tensor(num_tokens, device=args.device, dtype=torch.long)
+        torch.distributed.all_reduce(total_tokens, torch.distributed.ReduceOp.SUM)
+        weight = args.world_size * num_tokens / total_tokens
         
-        metrics = torch.stack([loss, accuracy])
+        metrics = torch.stack([loss * weight, accuracy * weight])
         torch.distributed.all_reduce(metrics, torch.distributed.ReduceOp.AVG)
         loss, accuracy = metrics.tolist()
 
@@ -281,7 +291,7 @@ def validation_epoch(model, valid_dataloader, epoch, args):
                 "validation/accuracy": mean(accuracies) * 100.0,
                 "validation/perplexity": math.exp(mean(losses))
             },
-            commit=False
+            commit=commit
         )
 
 
@@ -313,7 +323,7 @@ def load_datasets(args, tokenizer, epoch, global_step, train_dataloader, valid_d
             train_data,
             shuffle=True,
             batch_size=batch_size,
-            num_workers=4,  # non-zero num_workers causes segmenation fault
+            num_workers=0,  # non-zero num_workers causes segmenation fault
             generator=torch.Generator().manual_seed(train_seed),
             drop_last=True,
             pin_memory=True,
@@ -336,8 +346,6 @@ def load_datasets(args, tokenizer, epoch, global_step, train_dataloader, valid_d
 
 
 if __name__ == "__main__":
-    torch.multiprocessing.set_start_method('spawn')
-
     args = parse_arguments()
 
     tokenizer = Tokenizer.from_file(args.tokenizer_path)
@@ -353,4 +361,4 @@ if __name__ == "__main__":
             break
 
     save(model, args)
-    validation_epoch(model, valid_dataloader, epoch, args)
+    validation_epoch(model, valid_dataloader, epoch, args, commit=True)

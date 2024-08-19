@@ -100,7 +100,7 @@ class EncoderLayer(nn.Module):
 class GeGLU(nn.Module):
     def forward(self, x):
         x, gate = x.chunk(2, dim=-1)
-        x = x * F.gelu(gate, approximate='tanh')
+        x = x * F.gelu(gate)
         return x
 
 
@@ -157,11 +157,13 @@ class Attention(nn.Module):
         self.head_size = config.hidden_size // config.num_attention_heads
 
         self.in_proj_qk = nn.Linear(config.hidden_size, 2*config.hidden_size, bias=True)
-        self.in_proj_v = nn.Linear(config.hidden_size, config.hidden_size, bias=True)
+        self.in_proj_vg = nn.Linear(config.hidden_size, 2*config.hidden_size, bias=True)
         self.out_proj = nn.Linear(config.hidden_size, config.hidden_size, bias=True)
 
         self.pre_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=False)
-        self.post_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=True)
+        #self.q_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=True)
+        #self.k_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=True)
+        self.post_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=False)
 
         position_indices = torch.arange(config.max_position_embeddings, dtype=torch.long).unsqueeze(1) \
             - torch.arange(config.max_position_embeddings, dtype=torch.long).unsqueeze(0)
@@ -184,10 +186,10 @@ class Attention(nn.Module):
     def initialize(self):
         std = math.sqrt(2.0 / (5.0 * self.hidden_size))
         nn.init.trunc_normal_(self.in_proj_qk.weight, mean=0.0, std=std, a=-2*std, b=2*std)
-        nn.init.trunc_normal_(self.in_proj_v.weight, mean=0.0, std=std, a=-2*std, b=2*std)
+        nn.init.trunc_normal_(self.in_proj_vg.weight, mean=0.0, std=std, a=-2*std, b=2*std)
         nn.init.trunc_normal_(self.out_proj.weight, mean=0.0, std=std, a=-2*std, b=2*std)
         self.in_proj_qk.bias.data.zero_()
-        self.in_proj_v.bias.data.zero_()
+        self.in_proj_vg.bias.data.zero_()
         self.out_proj.bias.data.zero_()
 
     def forward(self, hidden_states, attention_mask, relative_embedding):
@@ -203,17 +205,23 @@ class Attention(nn.Module):
 
         hidden_states = self.pre_layer_norm(hidden_states)
         query, key = self.in_proj_qk(hidden_states).chunk(2, dim=2)  # shape: [T, B, D]
-        value = self.in_proj_v(hidden_states)  # shape: [T, B, D]
+        value, gate = self.in_proj_vg(hidden_states).chunk(2, dim=2)  # shape: [T, B, D]
+        gate = F.gelu(gate)
+
+        # query = self.q_layer_norm(query)
+        # key = self.k_layer_norm(key)
 
         pos = self.in_proj_qk(self.dropout(relative_embedding))  # shape: [2T-1, 2D]
         pos = F.embedding(self.position_indices[:query_len, :key_len], pos)  # shape: [T, T, 2D]
         query_pos, key_pos = pos.chunk(2, dim=-1)
+        #query_pos = self.q_layer_norm(query_pos).view(query_len, key_len, self.num_heads, self.head_size)
+        #key_pos = self.k_layer_norm(key_pos).view(query_len, key_len, self.num_heads, self.head_size)
         query_pos = query_pos.view(query_len, key_len, self.num_heads, self.head_size)
         key_pos = key_pos.view(query_len, key_len, self.num_heads, self.head_size)
 
         query = query.reshape(query_len, batch_size * self.num_heads, self.head_size).transpose(0, 1)
         key = key.reshape(key_len, batch_size * self.num_heads, self.head_size).transpose(0, 1)
-        value = value.view(key_len, batch_size * self.num_heads, self.head_size).transpose(0, 1)
+        value = value.reshape(key_len, batch_size * self.num_heads, self.head_size).transpose(0, 1)
 
         attention_scores = torch.bmm(query, key.transpose(1, 2) * self.scale)
 
@@ -228,8 +236,9 @@ class Attention(nn.Module):
         attention_probs = self.dropout(attention_probs)
         context = torch.bmm(attention_probs.flatten(0, 1), value)  # shape: [B*H, Q, D]
         context = context.transpose(0, 1).reshape(context.size(1), -1, self.hidden_size)  # shape: [Q, B, H*D]
-        context = self.out_proj(context)
+        context = context * gate
         context = self.post_layer_norm(context)
+        context = self.out_proj(context)
         context = self.dropout(context)
 
         return context

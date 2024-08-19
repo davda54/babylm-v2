@@ -26,15 +26,12 @@ class Bert(nn.Module):
         gold_labels = masked_lm_labels.flatten()
         gold_labels = gold_labels[gold_labels != -100]
 
-        loss = F.cross_entropy(subword_prediction, gold_labels, reduction="none").mean()
-        z_loss = torch.logsumexp(subword_prediction, dim=-1).pow(2).mean()
+        loss = F.cross_entropy(subword_prediction, gold_labels, reduction="none")
 
         with torch.no_grad():
             accuracy = (subword_prediction.argmax(-1) == gold_labels).float().mean()
 
-        num_tokens = gold_labels.size(0)
-
-        return loss, accuracy, z_loss, num_tokens
+        return loss.mean(), accuracy
 
 
 class Encoder(nn.Module):
@@ -97,11 +94,9 @@ class EncoderLayer(nn.Module):
         return x
 
 
-class GeGLU(nn.Module):
+class ReluSquared(nn.Module):
     def forward(self, x):
-        x, gate = x.chunk(2, dim=-1)
-        x = x * F.gelu(gate, approximate='tanh')
-        return x
+        return F.relu(x).pow(2)
 
 
 class FeedForward(nn.Module):
@@ -109,8 +104,8 @@ class FeedForward(nn.Module):
         super().__init__()
         self.mlp = nn.Sequential(
             nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps, elementwise_affine=False),
-            nn.Linear(config.hidden_size, 2*config.intermediate_size, bias=False),
-            GeGLU(),
+            nn.Linear(config.hidden_size, config.intermediate_size, bias=False),
+            ReluSquared(),
             nn.LayerNorm(config.intermediate_size, eps=config.layer_norm_eps, elementwise_affine=False),
             nn.Linear(config.intermediate_size, config.hidden_size, bias=False),
             nn.Dropout(config.hidden_dropout_prob)
@@ -160,6 +155,10 @@ class Attention(nn.Module):
         self.in_proj_v = nn.Linear(config.hidden_size, config.hidden_size, bias=True)
         self.out_proj = nn.Linear(config.hidden_size, config.hidden_size, bias=True)
 
+        # depthwise convolution as in Noam Shazeer's paper
+        self.depthwise_conv_qk = nn.Conv1d(2*config.hidden_size, 2*config.hidden_size, 3, 1, 1, groups=2*config.hidden_size)
+        self.depthwise_conv_v = nn.Conv1d(config.hidden_size, config.hidden_size, 3, 1, 1, groups=config.hidden_size)
+
         self.pre_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=False)
         self.post_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=True)
 
@@ -202,8 +201,13 @@ class Attention(nn.Module):
             self.register_buffer("position_indices", position_indices.to(hidden_states.device), persistent=True)
 
         hidden_states = self.pre_layer_norm(hidden_states)
-        query, key = self.in_proj_qk(hidden_states).chunk(2, dim=2)  # shape: [T, B, D]
-        value = self.in_proj_v(hidden_states)  # shape: [T, B, D]
+
+        query, key = self.depthwise_conv_qk(
+            self.in_proj_qk(hidden_states).permute(1, 2, 0)
+        ).permute(2, 0, 1).chunk(2, dim=-1)  # shape: 2 x [T, B, D]
+        value = self.depthwise_conv_v(
+            self.in_proj_v(hidden_states).permute(1, 2, 0)
+        ).permute(2, 0, 1)  # shape: [T, B, D]
 
         pos = self.in_proj_qk(self.dropout(relative_embedding))  # shape: [2T-1, 2D]
         pos = F.embedding(self.position_indices[:query_len, :key_len], pos)  # shape: [T, T, 2D]

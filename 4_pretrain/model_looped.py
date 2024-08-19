@@ -50,10 +50,11 @@ class Encoder(nn.Module):
 
     def forward(self, hidden_states, attention_mask, relative_embedding):
         for layer in self.layers:
-            if self.activation_checkpointing:
-                hidden_states = checkpoint.checkpoint(layer, hidden_states, attention_mask, relative_embedding)
-            else:
-                hidden_states = layer(hidden_states, attention_mask, relative_embedding)
+            for _ in range(2):
+                if self.activation_checkpointing:
+                    hidden_states = checkpoint.checkpoint(layer, hidden_states, attention_mask, relative_embedding)
+                else:
+                    hidden_states = layer(hidden_states, attention_mask, relative_embedding)
 
         return hidden_states
 
@@ -160,7 +161,8 @@ class Attention(nn.Module):
         self.in_proj_v = nn.Linear(config.hidden_size, config.hidden_size, bias=True)
         self.out_proj = nn.Linear(config.hidden_size, config.hidden_size, bias=True)
 
-        self.pre_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=False)
+        self.q_layer_norm = nn.LayerNorm(self.head_size, config.layer_norm_eps, elementwise_affine=True)
+        self.k_layer_norm = nn.LayerNorm(self.head_size, config.layer_norm_eps, elementwise_affine=True)
         self.post_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=True)
 
         position_indices = torch.arange(config.max_position_embeddings, dtype=torch.long).unsqueeze(1) \
@@ -201,18 +203,17 @@ class Attention(nn.Module):
             position_indices = self.config.position_bucket_size - 1 + position_indices
             self.register_buffer("position_indices", position_indices.to(hidden_states.device), persistent=True)
 
-        hidden_states = self.pre_layer_norm(hidden_states)
         query, key = self.in_proj_qk(hidden_states).chunk(2, dim=2)  # shape: [T, B, D]
         value = self.in_proj_v(hidden_states)  # shape: [T, B, D]
 
         pos = self.in_proj_qk(self.dropout(relative_embedding))  # shape: [2T-1, 2D]
         pos = F.embedding(self.position_indices[:query_len, :key_len], pos)  # shape: [T, T, 2D]
         query_pos, key_pos = pos.chunk(2, dim=-1)
-        query_pos = query_pos.view(query_len, key_len, self.num_heads, self.head_size)
-        key_pos = key_pos.view(query_len, key_len, self.num_heads, self.head_size)
+        query_pos = self.q_layer_norm(query_pos.view(query_len, key_len, self.num_heads, self.head_size))
+        key_pos = self.k_layer_norm(key_pos.view(query_len, key_len, self.num_heads, self.head_size))
 
-        query = query.reshape(query_len, batch_size * self.num_heads, self.head_size).transpose(0, 1)
-        key = key.reshape(key_len, batch_size * self.num_heads, self.head_size).transpose(0, 1)
+        query = self.q_layer_norm(query.reshape(query_len, batch_size * self.num_heads, self.head_size).transpose(0, 1))
+        key = self.k_layer_norm(key.reshape(key_len, batch_size * self.num_heads, self.head_size).transpose(0, 1))
         value = value.view(key_len, batch_size * self.num_heads, self.head_size).transpose(0, 1)
 
         attention_scores = torch.bmm(query, key.transpose(1, 2) * self.scale)

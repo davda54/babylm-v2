@@ -59,7 +59,7 @@ if __name__ == "__main__":
     input_train_path = args.input_train_path
     input_valid_path = args.input_valid_path
     output_train_path = input_train_path.replace(".jsonl", "_tokenized.bin")
-    output_valid_path = input_valid_path.replace(".jsonl", "10M_tokenized.bin")
+    output_valid_path = input_valid_path.replace(".jsonl", "_10M_tokenized.bin")
 
     tokenize_file(input_train_path, output_train_path, tokenizer)
     tokenize_file(input_valid_path, output_valid_path, tokenizer)

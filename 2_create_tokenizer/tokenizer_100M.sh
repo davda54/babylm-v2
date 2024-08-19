@@ -1,12 +1,12 @@
 #!/bin/bash
 
 #SBATCH --account=project_465000498
-#SBATCH --time=72:00:00
+#SBATCH --time=00:30:00
 #SBATCH --mem-per-cpu=64G
 #SBATCH --cpus-per-task=2
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --partition=small
+#SBATCH --partition=debug
 
 
 set -o errexit  # Exit the script on any error
@@ -24,4 +24,4 @@ export PS1=\$
 source /project/project_465000144/pytorch_1.13.1/bin/activate
 
 # run the script
-python3 tokenizer_100M.py
+python3 tokenizer_100M_nemo.py

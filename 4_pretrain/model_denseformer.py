@@ -37,25 +37,80 @@ class Bert(nn.Module):
         return loss, accuracy, z_loss, num_tokens
 
 
+class InPlaceSetSlice(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, full_tensor, last_slice, x_idx, x_val):
+        full_tensor[x_idx] = x_val
+        ctx.x_idx = x_idx
+        ret = torch.Tensor().to(full_tensor.device)
+        ret.set_(full_tensor[:x_idx + 1])
+        return ret
+
+    @staticmethod
+    def backward(ctx, grad_out):
+        if ctx.x_idx == 0:
+            return None, None, None, grad_out[ctx.x_idx]
+        else:
+            return None, grad_out[:ctx.x_idx], None, grad_out[ctx.x_idx]
+
+
+def apply_inplace_set(x_acc, x_idx, x_val):
+    full_tensor, last_slice = x_acc
+    new_slice = InPlaceSetSlice.apply(full_tensor, last_slice, x_idx, x_val)
+    return full_tensor, new_slice
+
+
+class DWAModules(torch.nn.Module):
+    def __init__(self, n_blocks):
+        super().__init__()
+        self.n_blocks = n_blocks
+        self.alphas = nn.ParameterList([nn.Parameter(torch.zeros(i + 2)) for i in range(n_blocks)])
+        self.accumulator = None
+        self._init_weights()
+
+    def _init_weights(self):
+        for module in self.alphas:
+            module.data.zero_()
+            module.data[-1] = 1.0
+
+    def init_accumulator(self, x):
+        self.accumulator = (torch.zeros((self.n_blocks + 1, *x.shape), device=x.device, dtype=x.dtype), None)
+        self.accumulator = apply_inplace_set(self.accumulator, 0, x)
+
+    def forward(self, x, block_idx):
+        assert self.accumulator is not None, "`init_accumulator(x)` needs to be called first"
+        self.accumulator = apply_inplace_set(
+            self.accumulator, 
+            block_idx + 1,
+            x
+        )
+        x = torch.tensordot(self.alphas[block_idx], self.accumulator[1], dims=1)
+        return x
+
+
 class Encoder(nn.Module):
     def __init__(self, config, activation_checkpointing=False):
         super().__init__()
-        self.layers = nn.ModuleList([EncoderLayer(config) for _ in range(config.num_hidden_layers)])
+        self.attention_layers = nn.ModuleList([Attention(config) for _ in range(config.num_hidden_layers)])
+        self.mlp_layers = nn.ModuleList([FeedForward(config) for _ in range(config.num_hidden_layers)])
+        self.dwa_modules = DWAModules(config.num_hidden_layers * 2)
 
-        for i, layer in enumerate(self.layers):
-            layer.mlp.mlp[1].weight.data *= math.sqrt(1.0 / (2.0 * (1 + i)))
-            layer.mlp.mlp[-2].weight.data *= math.sqrt(1.0 / (2.0 * (1 + i)))
+        for i, layer in enumerate(self.mlp_layers):
+            layer.mlp[1].weight.data *= math.sqrt(1.0 / (2.0 * (1 + i)))
+            layer.mlp[-2].weight.data *= math.sqrt(1.0 / (2.0 * (1 + i)))
 
         self.activation_checkpointing = activation_checkpointing
 
-    def forward(self, hidden_states, attention_mask, relative_embedding):
-        for layer in self.layers:
-            if self.activation_checkpointing:
-                hidden_states = checkpoint.checkpoint(layer, hidden_states, attention_mask, relative_embedding)
-            else:
-                hidden_states = layer(hidden_states, attention_mask, relative_embedding)
+    def forward(self, x, attention_mask, relative_embedding):
+        self.dwa_modules.init_accumulator(x)
+        for i, (attention_layer, mlp_layer) in enumerate(zip(self.attention_layers, self.mlp_layers)):
+            x = x + attention_layer(x, attention_mask, relative_embedding)
+            x = self.dwa_modules(x, block_idx=i * 2)
 
-        return hidden_states
+            x = x + mlp_layer(x)
+            x = self.dwa_modules(x, block_idx=i * 2 + 1)
+
+        return x
 
 
 class MaskClassifier(nn.Module):
@@ -82,18 +137,6 @@ class MaskClassifier(nn.Module):
         if masked_lm_labels is not None:
             x = torch.index_select(x.flatten(0, 1), 0, torch.nonzero(masked_lm_labels.flatten() != -100).squeeze())
         x = self.nonlinearity(x)
-        return x
-
-
-class EncoderLayer(nn.Module):
-    def __init__(self, config):
-        super().__init__()
-        self.attention = Attention(config)
-        self.mlp = FeedForward(config)
-
-    def forward(self, x, padding_mask, relative_embedding):
-        x = x + self.attention(x, padding_mask, relative_embedding)
-        x = x + self.mlp(x)
         return x
 
 
@@ -161,6 +204,10 @@ class Attention(nn.Module):
         self.out_proj = nn.Linear(config.hidden_size, config.hidden_size, bias=True)
 
         self.pre_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=False)
+        self.k_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=True)
+        self.q_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=True)
+        #self.k_pos_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=True)
+        #self.q_pos_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=True)
         self.post_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=True)
 
         position_indices = torch.arange(config.max_position_embeddings, dtype=torch.long).unsqueeze(1) \
@@ -203,13 +250,15 @@ class Attention(nn.Module):
 
         hidden_states = self.pre_layer_norm(hidden_states)
         query, key = self.in_proj_qk(hidden_states).chunk(2, dim=2)  # shape: [T, B, D]
+        query = self.q_layer_norm(query)  # shape: [T, B, D]
+        key = self.k_layer_norm(key)  # shape: [T, B, D]
         value = self.in_proj_v(hidden_states)  # shape: [T, B, D]
 
         pos = self.in_proj_qk(self.dropout(relative_embedding))  # shape: [2T-1, 2D]
         pos = F.embedding(self.position_indices[:query_len, :key_len], pos)  # shape: [T, T, 2D]
         query_pos, key_pos = pos.chunk(2, dim=-1)
-        query_pos = query_pos.view(query_len, key_len, self.num_heads, self.head_size)
-        key_pos = key_pos.view(query_len, key_len, self.num_heads, self.head_size)
+        query_pos = self.q_layer_norm(query_pos).view(query_len, key_len, self.num_heads, self.head_size)
+        key_pos = self.k_layer_norm(key_pos).view(query_len, key_len, self.num_heads, self.head_size)
 
         query = query.reshape(query_len, batch_size * self.num_heads, self.head_size).transpose(0, 1)
         key = key.reshape(key_len, batch_size * self.num_heads, self.head_size).transpose(0, 1)

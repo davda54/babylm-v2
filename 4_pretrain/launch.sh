@@ -25,5 +25,11 @@ echo "Launching on $SLURMD_NODENAME ($SLURM_PROCID/$SLURM_JOB_NUM_NODES)," \
      "master $MASTER_ADDR port $MASTER_PORT," \
      "GPUs $SLURM_GPUS_ON_NODE," \
      "CUDA: $(python -c 'import torch; print(torch.cuda.is_available())')"
+
+export MIOPEN_USER_DB_PATH="/tmp/my-miopen-cache"
+export MIOPEN_CUSTOM_CACHE_DIR=${MIOPEN_USER_DB_PATH}
+rm -rf ${MIOPEN_USER_DB_PATH}
+mkdir -p ${MIOPEN_USER_DB_PATH}
+
 # echo "/pfs/lustrep4/scratch/project_462000319/preprocessed_data/final/merged/train"
 python -u "$@"

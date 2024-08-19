@@ -12,7 +12,7 @@ class Bert(nn.Module):
         super().__init__()
         self.embedding = Embedding(config)
         self.transformer = Encoder(config, activation_checkpointing)
-        self.classifier = MaskClassifier(config, self.embedding.word_embedding.weight)
+        self.classifier = MaskClassifierMixtureOfSoftmaxes(config, self.embedding.word_embedding.weight)
 
     def get_contextualized(self, input_ids, attention_mask):
         static_embeddings, relative_embedding = self.embedding(input_ids)
@@ -27,7 +27,7 @@ class Bert(nn.Module):
         gold_labels = gold_labels[gold_labels != -100]
 
         loss = F.cross_entropy(subword_prediction, gold_labels, reduction="none").mean()
-        z_loss = torch.logsumexp(subword_prediction, dim=-1).pow(2).mean()
+        z_loss = 0.0  # torch.logsumexp(subword_prediction, dim=-1).pow(2).mean()
 
         with torch.no_grad():
             accuracy = (subword_prediction.argmax(-1) == gold_labels).float().mean()
@@ -56,7 +56,51 @@ class Encoder(nn.Module):
                 hidden_states = layer(hidden_states, attention_mask, relative_embedding)
 
         return hidden_states
+    
 
+class MaskClassifierMixtureOfSoftmaxes(nn.Module):
+    def __init__(self, config, subword_embedding):
+        super().__init__()
+        self.num_mixtures = 4
+        self.pre_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=False)
+        self.hidden = nn.Linear(config.hidden_size, config.hidden_size * self.num_mixtures)
+        self.nonlinearity = nn.Sequential(
+            nn.GELU(),
+            nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=False),
+        )
+        self.router = nn.Linear(config.hidden_size, self.num_mixtures)
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self.out_proj = nn.Linear(config.hidden_size, subword_embedding.size(0))
+
+        self.initialize(config.hidden_size, subword_embedding)
+    
+    def initialize(self, hidden_size, embedding):
+        std = math.sqrt(2.0 / (5.0 * hidden_size))
+        nn.init.trunc_normal_(self.hidden.weight, mean=0.0, std=std, a=-2*std, b=2*std)
+        nn.init.trunc_normal_(self.out_proj.weight, mean=0.0, std=std, a=-2*std, b=2*std)
+        self.hidden.bias.data.zero_()
+        self.out_proj.bias.data.zero_()
+        self.out_proj.weight = embedding
+    
+    def forward(self, x, masked_lm_labels=None):
+        if masked_lm_labels is not None:
+            x = torch.index_select(x.flatten(0, 1), 0, torch.nonzero(masked_lm_labels.flatten() != -100).squeeze())
+
+        x = self.pre_layer_norm(x)
+
+        h = self.hidden(x)
+        h = h.view(h.size(0), self.num_mixtures, -1)
+        h = self.nonlinearity(h)
+        
+        router = self.router(x)
+        router = F.softmax(router, dim=-1)
+
+        h = self.dropout(h)
+        h = self.out_proj(h)
+        h = F.softmax(h, dim=-1)
+
+        output = torch.einsum("bkv,bk->bv", h, router).log()
+        return output
 
 class MaskClassifier(nn.Module):
     def __init__(self, config, subword_embedding):
@@ -161,6 +205,10 @@ class Attention(nn.Module):
         self.out_proj = nn.Linear(config.hidden_size, config.hidden_size, bias=True)
 
         self.pre_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=False)
+        self.k_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=True)
+        self.q_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=True)
+        #self.k_pos_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=True)
+        #self.q_pos_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=True)
         self.post_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=True)
 
         position_indices = torch.arange(config.max_position_embeddings, dtype=torch.long).unsqueeze(1) \
@@ -203,13 +251,15 @@ class Attention(nn.Module):
 
         hidden_states = self.pre_layer_norm(hidden_states)
         query, key = self.in_proj_qk(hidden_states).chunk(2, dim=2)  # shape: [T, B, D]
+        query = self.q_layer_norm(query)  # shape: [T, B, D]
+        key = self.k_layer_norm(key)  # shape: [T, B, D]
         value = self.in_proj_v(hidden_states)  # shape: [T, B, D]
 
         pos = self.in_proj_qk(self.dropout(relative_embedding))  # shape: [2T-1, 2D]
         pos = F.embedding(self.position_indices[:query_len, :key_len], pos)  # shape: [T, T, 2D]
         query_pos, key_pos = pos.chunk(2, dim=-1)
-        query_pos = query_pos.view(query_len, key_len, self.num_heads, self.head_size)
-        key_pos = key_pos.view(query_len, key_len, self.num_heads, self.head_size)
+        query_pos = self.q_layer_norm(query_pos).view(query_len, key_len, self.num_heads, self.head_size)
+        key_pos = self.k_layer_norm(key_pos).view(query_len, key_len, self.num_heads, self.head_size)
 
         query = query.reshape(query_len, batch_size * self.num_heads, self.head_size).transpose(0, 1)
         key = key.reshape(key_len, batch_size * self.num_heads, self.head_size).transpose(0, 1)

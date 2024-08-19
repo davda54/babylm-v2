@@ -18,7 +18,7 @@ from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel
 
 from lamb import Lamb
-from model import Bert
+from model_shazeer import Bert
 from utils import cosine_schedule_with_warmup_cooldown, is_main_process, get_rank, seed_everything, get_world_size
 from dataset import Dataset, ValidationDataset
 from model_logging import ModelLogger
@@ -33,8 +33,8 @@ def parse_arguments():
 
     parser.add_argument("--train_path", default="/pfs/lustrep1/scratch/project_465000144/dasamuel/babylm-v2/data/train_100M_tokenized.bin", type=str, help="Path to the training data.")
     parser.add_argument("--valid_path", default="/pfs/lustrep1/scratch/project_465000144/dasamuel/babylm-v2/data/dev_100M_tokenized.bin", type=str, help="Path to the validation data.")
-    parser.add_argument("--name", default="initial_run", type=str, help="Name of the run.")
-    parser.add_argument("--config_file", default="/pfs/lustrep1/scratch/project_465000144/dasamuel/babylm-v2/configs/xs.json", type=str, help="The BERT model config")
+    parser.add_argument("--name", default="shazeer_improvement", type=str, help="Name of the run.")
+    parser.add_argument("--config_file", default="/pfs/lustrep1/scratch/project_465000144/dasamuel/babylm-v2/configs/xs_shazeer.json", type=str, help="The BERT model config")
     parser.add_argument("--tokenizer_path", default="/pfs/lustrep1/scratch/project_465000144/dasamuel/babylm-v2/tokenizer_100M.json", type=str, help="Path to the tokenizer.")
     parser.add_argument("--output_dir", default="/pfs/lustrep1/scratch/project_465000144/dasamuel/babylm-v2/checkpoints", type=str, help="The output directory where the model checkpoints will be written.")
     parser.add_argument("--optimizer", default="lamb", type=str)
@@ -313,7 +313,7 @@ def load_datasets(args, tokenizer, epoch, global_step, train_dataloader, valid_d
             train_data,
             shuffle=True,
             batch_size=batch_size,
-            num_workers=4,  # non-zero num_workers causes segmenation fault
+            num_workers=0,  # non-zero num_workers causes segmenation fault
             generator=torch.Generator().manual_seed(train_seed),
             drop_last=True,
             pin_memory=True,
@@ -336,8 +336,6 @@ def load_datasets(args, tokenizer, epoch, global_step, train_dataloader, valid_d
 
 
 if __name__ == "__main__":
-    torch.multiprocessing.set_start_method('spawn')
-
     args = parse_arguments()
 
     tokenizer = Tokenizer.from_file(args.tokenizer_path)
