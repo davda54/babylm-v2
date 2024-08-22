@@ -66,6 +66,7 @@ def parse_arguments():
     parser.add_argument('--mixed_precision', default=True, action=argparse.BooleanOptionalAction)
     parser.add_argument('--n_special_tokens', default=16, type=int, help="Number of special tokens.")
     parser.add_argument('--z_loss_weight', default=1e-4, type=float, help="Weight for the z loss.")
+    parser.add_argument('--token_weighted_loss', default=True, action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
 
     args.output_path = f"{args.output_dir}/{args.name}.bin"
@@ -83,7 +84,10 @@ def setup_training(args, tokenizer):
     assert args.gpus_per_node == torch.cuda.device_count()
     print(f"Hello from rank {args.rank} of {args.world_size} on {gethostname()} where there are {args.gpus_per_node} allocated GPUs per node.", flush=True)
 
-    if args.rank / args.gpus_per_node < args.hybrid_numerator / args.hybrid_denominator:
+    assert args.world_size % args.hybrid_denominator == 0
+
+    # if args.rank / args.world_size < args.hybrid_numerator / args.hybrid_denominator:
+    if args.rank * args.hybrid_denominator < args.hybrid_numerator * args.world_size:
         args.dataset_type = "masked"
     else:
         args.dataset_type = "causal"
@@ -218,7 +222,11 @@ def training_epoch(model, train_dataloader, valid_dataloader, optimizer, schedul
 
         total_tokens = torch.tensor(num_tokens, device=args.device, dtype=torch.long)
         torch.distributed.all_reduce(total_tokens, torch.distributed.ReduceOp.SUM)
-        weight = args.world_size * num_tokens / total_tokens
+
+        if args.token_weighted_loss:
+            weight = args.world_size * num_tokens / total_tokens
+        else:
+            weight = 1.0
 
         ((loss + args.z_loss_weight * z_loss) * weight).backward()
         grad_norm = nn.utils.clip_grad_norm_(model.parameters(), args.max_gradient)
@@ -338,9 +346,13 @@ def load_datasets(args, tokenizer, epoch, global_step, train_dataloader, valid_d
 
     if train_dataloader is None or train_dataloader.dataset.seq_length != args.seq_length:
         if args.dataset_type == "masked":
-            train_data = MaskedDataset(args.train_path, tokenizer, args)
+            rank = args.rank
+            world_size = args.world_size * hybrid_numerator // hybrid_denominator
+            train_data = MaskedDataset(args.train_path, tokenizer, args, rank, world_size)
         else:
-            train_data = CausalDataset(args.train_path, tokenizer, args)
+            rank = args.rank - args.world_size * hybrid_numerator // hybrid_denominator
+            world_size = args.world_size * (hybrid_denominator - hybrid_numerator) // hybrid_denominator
+            train_data = CausalDataset(args.train_path, tokenizer, args, rank, world_size)
 
         if is_main_process():
             train_data.show_random_item(tokenizer)
