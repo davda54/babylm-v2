@@ -69,7 +69,7 @@ class RandomIndex:
 
 
 class MaskedDataset(torch.utils.data.Dataset):
-    def __init__(self, input_file: str, tokenizer, args):
+    def __init__(self, input_file: str, tokenizer, args, rank, world_size):
         self.path = input_file
         self.seq_length = args.seq_length
         self.n_special_tokens = args.n_special_tokens
@@ -89,7 +89,7 @@ class MaskedDataset(torch.utils.data.Dataset):
             for offset in range(0, len(document), self.seq_length - 2)
             if len(document) > 0 and len(document) - offset > 1
         ]
-        self.segments = self.segments[args.rank::args.world_size]
+        self.segments = self.segments[rank::world_size]
         self.counts = [
             torch.zeros_like(segment)
             for segment in self.segments
@@ -358,15 +358,14 @@ class ValidationDataset(torch.utils.data.Dataset):
 
         segment = torch.cat([
             torch.LongTensor([self.cls_index]),
-            tokens[:seq_length].long(),
-            torch.LongTensor([self.sep_index])
+            tokens[:seq_length].long()
         ])
-        attention_mask = torch.ones(seq_length + 2, seq_length + 2, dtype=torch.bool)
+        attention_mask = torch.ones(seq_length + 1, seq_length + 1, dtype=torch.bool)
 
         mask_ratios, replacement_tokens = self.masking_strategy(segment)
         input_ids, target_ids, real_mask_p = self.apply_mask(segment, mask_ratios, replacement_tokens)
 
-        padding_length = self.seq_length - segment.size(0)
+        padding_length = self.seq_length - segment.size(0) + 1
         if padding_length > 0:
             input_ids = torch.cat([
                 input_ids,
@@ -382,6 +381,10 @@ class ValidationDataset(torch.utils.data.Dataset):
             )
 
         attention_mask = ~attention_mask
+
+        input_ids = input_ids[:-1]
+        target_ids = target_ids[1:]
+        attention_mask = attention_mask[:-1, :-1]
 
         return input_ids, target_ids, attention_mask, real_mask_p
     
