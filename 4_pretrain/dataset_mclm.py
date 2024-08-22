@@ -211,7 +211,7 @@ class MaskedDataset(torch.utils.data.Dataset):
 
 
 class CausalDataset(torch.utils.data.Dataset):
-    def __init__(self, input_file: str, tokenizer, args):
+    def __init__(self, input_file: str, tokenizer, args, rank, world_size):
         self.path = input_file
         self.seq_length = args.seq_length
         self.n_special_tokens = args.n_special_tokens
@@ -228,7 +228,7 @@ class CausalDataset(torch.utils.data.Dataset):
             for offset in range(0, len(document), self.seq_length - 2)
             if len(document) > 0 and len(document) - offset > 1
         ]
-        self.segments = self.segments[args.rank::args.world_size]
+        self.segments = self.segments[rank::world_size]
         self.counts = [
             torch.zeros_like(segment)
             for segment in self.segments
