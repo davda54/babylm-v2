@@ -3,7 +3,6 @@ import torch
 import json
 from collections import Counter
 # from transformers import AutoTokenizer, AutoModelForMaskedLM
-from model import BertPred
 # import wandb
 import os
 from tqdm import tqdm
@@ -24,6 +23,7 @@ def parse_arguments():
     parser.add_argument("--config_file", default="../../configs/base.json", type=str)
     parser.add_argument("--backend", default="mlm", type=str, help="The evaluation backend strategy, options: (mlm, causal, mlm_shift, fused)")
     parser.add_argument("--batch_size", default=64, type=int)
+    parser.add_argument("--architecture", default="base", type=str, help="The architecture of the model, available: base, attglu, attgate, densemod, densesubmod, densecont, elc, qkln")
 
     args = parser.parse_args()
 
@@ -166,6 +166,26 @@ def evaluate(model, tokenizer, device, args):
 if __name__ == "__main__":
     args = parse_arguments()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    match args.architecture:
+        case "base":
+            from model import BertPred
+        case "attglu":
+            from model_attentionglu_2 import BertPred
+        case "attgate":
+            from model_attention_gate import BertPred
+        case "densemod":
+            from model_denseformer_module import BertPred
+        case "densesubmod":
+            from model_denseformer import BertPred
+        case "densecont":
+            from model_denseformer_2 import BertPred
+        case "elc":
+            from model_elc import BertPred
+        case "qkln":
+            from model_qk_layernorm import BertPred
+        case _:
+            raise ValueError(f"The architecture cannot be {args.architecture}, it has to be one of the following: base, attglu, attgate, densemod, densesubmod, densecont, elc, qkln.")
 
     tokenizer = Tokenizer.from_file(args.tokenizer_path)
     # tokenizer = AutoTokenizer.from_pretrained(args.model_path_or_name, trust_remote_code=True)

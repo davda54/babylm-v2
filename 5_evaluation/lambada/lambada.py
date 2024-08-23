@@ -6,7 +6,6 @@ import json
 
 from tokenizers import Tokenizer
 # from transformers import AutoModelForMaskedLM, AutoTokenizer
-from model import BertPred
 
 from evaluator import evaluate_mlm, evaluate_mlm_shift, evaluate_causal, evaluate_prefix
 
@@ -21,6 +20,7 @@ def parse_arguments():
     parser.add_argument("--tokenizer_path", default="../../tokenizer_100M.json", type=str, help="The vocabulary the model was trained on.")
     parser.add_argument("--backend", default="mlm", type=str, help="The evaluation backend strategy, options: (mlm, mlm_shift, causal, prefix).")
     parser.add_argument("--config_file", default="../../configs/base.json", type=str)
+    parser.add_argument("--architecture", default="base", type=str, help="The architecture of the model, available: base, attglu, attgate, densemod, densesubmod, densecont, elc, qkln")
 
     # Optinal Parameters
     parser.add_argument("--verbose", action=argparse.BooleanOptionalAction, default=False, help="Outputs the prompt, answer and prediction of the model. Stops after num_prompts prompts.")
@@ -43,6 +43,26 @@ if __name__ == "__main__":
 
     args = parse_arguments()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    match args.architecture:
+        case "base":
+            from model import BertPred
+        case "attglu":
+            from model_attentionglu_2 import BertPred
+        case "attgate":
+            from model_attention_gate import BertPred
+        case "densemod":
+            from model_denseformer_module import BertPred
+        case "densesubmod":
+            from model_denseformer import BertPred
+        case "densecont":
+            from model_denseformer_2 import BertPred
+        case "elc":
+            from model_elc import BertPred
+        case "qkln":
+            from model_qk_layernorm import BertPred
+        case _:
+            raise ValueError(f"The architecture cannot be {args.architecture}, it has to be one of the following: base, attglu, attgate, densemod, densesubmod, densecont, elc, qkln.")
 
     with open(args.data, "r") as f:
         new_texts = [json.loads(line) for line in f if len(line.strip()) > 0]
@@ -85,7 +105,7 @@ if __name__ == "__main__":
             case "prefix":
                 prediction, loss, _ = evaluate_prefix(prompt, answer, tokenizer, model, device, verbose)
             case _:
-                raise ValueError(f"The architecture cannot be {args.architecture}, it has to be one of the following: encoder, decoder, encoder_decoder.")
+                raise ValueError(f"The backend cannot be {args.backend}, it has to be one of the following: mlm, mlm_shift, causal, prefix.")
 
         perplexity += loss
 
