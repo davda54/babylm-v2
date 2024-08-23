@@ -161,8 +161,6 @@ class Attention(nn.Module):
         self.out_proj = nn.Linear(config.hidden_size, config.hidden_size, bias=True)
 
         self.pre_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=False)
-        #self.q_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=True)
-        #self.k_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=True)
         self.post_layer_norm = nn.LayerNorm(config.hidden_size, config.layer_norm_eps, elementwise_affine=False)
 
         position_indices = torch.arange(config.max_position_embeddings, dtype=torch.long).unsqueeze(1) \
@@ -208,14 +206,9 @@ class Attention(nn.Module):
         value, gate = self.in_proj_vg(hidden_states).chunk(2, dim=2)  # shape: [T, B, D]
         gate = F.gelu(gate)
 
-        # query = self.q_layer_norm(query)
-        # key = self.k_layer_norm(key)
-
         pos = self.in_proj_qk(self.dropout(relative_embedding))  # shape: [2T-1, 2D]
         pos = F.embedding(self.position_indices[:query_len, :key_len], pos)  # shape: [T, T, 2D]
         query_pos, key_pos = pos.chunk(2, dim=-1)
-        #query_pos = self.q_layer_norm(query_pos).view(query_len, key_len, self.num_heads, self.head_size)
-        #key_pos = self.k_layer_norm(key_pos).view(query_len, key_len, self.num_heads, self.head_size)
         query_pos = query_pos.view(query_len, key_len, self.num_heads, self.head_size)
         key_pos = key_pos.view(query_len, key_len, self.num_heads, self.head_size)
 
