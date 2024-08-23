@@ -126,7 +126,7 @@ if __name__ == "__main__":
     print(f"Perplexity: {torch.exp(perplexity/total_answers)}")
 
     if not verbose:
-        with open(f"{args.output_dir}/report_{args.model_path_or_name.split('/')[-2]}_{args.backend}.txt", "w") as file:
+        with open(f"{args.output_dir}/report_{args.model_path_or_name.split('/')[-1][:-4]}_{args.backend}.txt", "w") as file:
             file.write(f"ACCURACY: {correct_answers/total_answers * 100.0}\n")
             file.write(f"PERPLEXITY: {torch.exp(perplexity/total_answers)}\n")
             file.write("\n")

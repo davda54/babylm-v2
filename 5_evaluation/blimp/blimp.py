@@ -139,7 +139,7 @@ def evaluate(model, tokenizer, device, args):
     print()
 
     # save report
-    with open(f"{args.output_dir}/report_{args.model_path_or_name.split('/')[-2]}_{args.backend}.txt", "w") as file:
+    with open(f"{args.output_dir}/report_{args.model_path_or_name.split('/')[-1][:-4]}_{args.backend}.txt", "w") as file:
         file.write("### BEST TEMPERATURE\n")
         file.write(f"{max_temp * 0.05:.2f}\n")
 
