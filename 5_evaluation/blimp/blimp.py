@@ -1,17 +1,15 @@
-# coding=utf-8
-
 import argparse
 import torch
-import tqdm
 import json
 from collections import Counter
-from transformers import AutoTokenizer, AutoModelForMaskedLM
+# from transformers import AutoTokenizer, AutoModelForMaskedLM
+from model import BertPred
 # import wandb
 import os
-# from tqdm import tqdm
+from tqdm import tqdm
 
 from lm_score import rank_mlm, rank_causal, rank_mlm_shift, rank_fused
-# from tokenizers import Tokenizer
+from tokenizers import Tokenizer
 
 
 def parse_arguments():
@@ -21,13 +19,22 @@ def parse_arguments():
     parser.add_argument("--input_path", default="data", type=str, help="Path to BLiMP.")
     # parser.add_argument("--name", default="blimp", type=str)
     parser.add_argument("--output_dir", default="blimp_results", type=str, help="The output directory where the model checkpoints will be written.")
-    # parser.add_argument("--tokenizer_path", default="../tokenizer_wiki.json", type=str, help="The vocabulary the BERT model will train on.")
-    parser.add_argument("--model_path_or_name", default="bert-base-cased", type=str, help="Path to a previous checkpointed training state.")
-    parser.add_argument("--backend", default="mlm", type="str", help="The evaluation backend strategy, options: (mlm, causal, mlm_shift, fused)")
+    parser.add_argument("--tokenizer_path", default="../../tokenizer_100M.json", type=str, help="The vocabulary the BERT model will train on.")
+    parser.add_argument("--model_path_or_name", default="../lambada/baseline/baseline.bin", type=str, help="Path to a previous checkpointed training state.")
+    parser.add_argument("--config_file", default="../../configs/base.json", type=str)
+    parser.add_argument("--backend", default="mlm", type=str, help="The evaluation backend strategy, options: (mlm, causal, mlm_shift, fused)")
     parser.add_argument("--batch_size", default=64, type=int)
 
     args = parser.parse_args()
 
+    return args
+
+
+def load_config(args):
+    with open(args.config_file, "r") as f:
+        config = json.load(f)
+    for k, v in config.items():
+        setattr(args, k, v)
     return args
 
 
@@ -52,22 +59,31 @@ def evaluate(model, tokenizer, device, args):
                 line = json.loads(line.strip())
 
                 # add to pairs
-                pair = {
-                    "good": line["sentence_good"],
-                    "bad": line["sentence_bad"],
-                    "field": line["field"],
-                    "UID": line["UID"],
-                    "linguistics_term": line["linguistics_term"]
-                }
-                if pair["field"] == "syntax_semantics":
-                    pair["field"] = "syntax/semantics"
+                if "field" in line:
+                    pair = {
+                        "good": line["sentence_good"],
+                        "bad": line["sentence_bad"],
+                        "field": line["field"],
+                        "UID": line["UID"],
+                        "linguistics_term": line["linguistics_term"]
+                    }
+                    if pair["field"] == "syntax_semantics":
+                        pair["field"] = "syntax/semantics"
+                else:
+                    pair = {
+                        "good": line["sentence_good"],
+                        "bad": line["sentence_bad"],
+                        "field": "supplemental",
+                        "UID": filename.split(".")[0],
+                        "linguistics_term": "supplemental"
+                    }
 
                 # rank
                 if args.backend == "mlm":
                     _, finegrained_ranking = rank_mlm([pair["good"], pair["bad"]], model, tokenizer, device, args.batch_size, temperatures=temperatures)
                 elif args.backend == "causal":
                     _, finegrained_ranking = rank_causal([pair["good"], pair["bad"]], model, tokenizer, device, args.batch_size, temperatures=temperatures)
-                elif args.backend == "mlm_shit":
+                elif args.backend == "mlm_shift":
                     _, finegrained_ranking = rank_mlm_shift([pair["good"], pair["bad"]], model, tokenizer, device, args.batch_size, temperatures=temperatures)
                 elif args.backend == "fused":
                     _, finegrained_ranking = rank_fused([pair["good"], pair["bad"]], model, tokenizer, device, args.batch_size, temperatures=temperatures)
@@ -123,7 +139,7 @@ def evaluate(model, tokenizer, device, args):
     print()
 
     # save report
-    with open(f"{args.output_dir}/report_{args.model_path_or_name.split('/')[-1]}.txt", "w") as file:
+    with open(f"{args.output_dir}/report_{args.model_path_or_name.split('/')[-2]}_{args.backend}.txt", "w") as file:
         file.write("### BEST TEMPERATURE\n")
         file.write(f"{max_temp * 0.05:.2f}\n")
 
@@ -151,10 +167,15 @@ if __name__ == "__main__":
     args = parse_arguments()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # tokenizer = Tokenizer.from_file(args.tokenizer_path)
-    tokenizer = AutoTokenizer.from_pretrained(args.model_path_or_name, trust_remote_code=True)
+    tokenizer = Tokenizer.from_file(args.tokenizer_path)
+    # tokenizer = AutoTokenizer.from_pretrained(args.model_path_or_name, trust_remote_code=True)
 
-    model = AutoModelForMaskedLM.from_pretrained(args.model_path_or_name, trust_remote_code=True)
+    args = load_config(args)
+    model = BertPred(args)
+
+    model.load_state_dict(torch.load(args.model_path_or_name, map_location="cpu"))
+
+    # model = AutoModelForMaskedLM.from_pretrained(args.model_path_or_name, trust_remote_code=True)
 
     n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(model)
