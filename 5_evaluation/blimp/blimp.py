@@ -162,6 +162,27 @@ def evaluate(model, tokenizer, device, args):
         file.write(f"{average_accuracies[max_temp]:.2f}\n")
         file.write("\n")
 
+        file.write("###TEMPERATURE 1\n")
+
+        file.write("### FIELD ACCURACY\n")
+        for key in field_accuracy[20].keys():
+            file.write(f"{key}: {field_accuracy[20][key]:.2f}\n")
+        file.write("\n")
+
+        file.write("### LINGUISTIC TERM ACCURACY\n")
+        for key in linguistics_term_accuracy[20].keys():
+            file.write(f"{key}: {linguistics_term_accuracy[20][key]:.2f}\n")
+        file.write("\n")
+
+        file.write("### UID ACCURACY\n")
+        for key in uid_accuracy[20].keys():
+            file.write(f"{key}: {uid_accuracy[20][key]:.2f}\n")
+        file.write("\n")
+
+        file.write("### AVERAGE ACCURACY\n")
+        file.write(f"{average_accuracies[20]:.2f}\n")
+        file.write("\n")
+
 
 if __name__ == "__main__":
     args = parse_arguments()
