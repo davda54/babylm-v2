@@ -6,15 +6,16 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from tokenizers import Tokenizer
+    import pathlib
 
 
 class Dataset(torch.utils.data.Dataset):
-    def __init__(self, input_file: str) -> None:
+    def __init__(self, input_file: pathlib.Path) -> None:
         self.premises = []
         self.hypotheses = []
         self.labels = []
 
-        with open(input_file, "r") as file:
+        with input_file.open("r") as file:
             for line in file:
                 data = json.loads(line)
                 self.premises.append(data["premise"])

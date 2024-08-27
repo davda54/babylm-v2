@@ -14,16 +14,16 @@ if TYPE_CHECKING:
     from torch.optim.lr_scheduler import LRScheduler
 
 
-def train(model: nn.Module, train_dataloader: DataLoader, args: Namespace, optimizer: Optimizer, scheduler: LRScheduler, valid_dataloader: DataLoader = None, verbose: bool = False) -> None:
-    total_steps = args.epochs * len(train_dataloader)
+def train(model: nn.Module, train_dataloader: DataLoader, args: Namespace, optimizer: Optimizer, scheduler: LRScheduler, device: str, valid_dataloader: DataLoader = None, verbose: bool = False) -> None:
+    total_steps = args.num_epochs * len(train_dataloader)
     step = 0
     best_score = None
 
-    for epoch in range(args.epochs):
-        step = train_epoch(model, train_dataloader, args, epoch, step, total_steps, optimizer, scheduler, verbose)
+    for epoch in range(args.num_epochs):
+        step = train_epoch(model, train_dataloader, args, epoch, step, total_steps, optimizer, scheduler, device, verbose)
 
         if valid_dataloader is not None:
-            metrics = evaluate(model, valid_dataloader, args.metrics, verbose)
+            metrics = evaluate(model, valid_dataloader, device, args.metrics, verbose)
             if args.keep_best_model:
                 score = metrics[args.metric_for_valid]
 
@@ -35,12 +35,16 @@ def train(model: nn.Module, train_dataloader: DataLoader, args: Namespace, optim
                 save_model(model, args)
 
 
-def train_epoch(model: nn.Module, train_dataloader: DataLoader, args: Namespace, epoch: int, global_step: int, total_steps: int, optimizer: Optimizer, scheduler: LRScheduler, verbose: bool = False) -> int:
+def train_epoch(model: nn.Module, train_dataloader: DataLoader, args: Namespace, epoch: int, global_step: int, total_steps: int, optimizer: Optimizer, scheduler: LRScheduler, device: str, verbose: bool = False) -> int:
     model.train()
 
     progress_bar = tqdm(initial=global_step, total=total_steps)
 
     for input_data, attention_mask, labels in train_dataloader:
+        input_data = input_data.to(device)
+        attention_mask = attention_mask.to(device)
+        labels = labels.to(device)
+
         optimizer.zero_grad()
 
         logits = model(input_data, attention_mask)  # loss = model(input_data, attention_mask, labels)
@@ -52,7 +56,7 @@ def train_epoch(model: nn.Module, train_dataloader: DataLoader, args: Namespace,
 
         metrics = calculate_metrics(logits, labels, args.metrics)
 
-        metrics_string = [f"{key}: {value}" for key, value in metrics].join(", ")
+        metrics_string = ", ".join([f"{key}: {value}" for key, value in metrics.items()])
 
         progress_bar.update()
 
@@ -67,7 +71,7 @@ def train_epoch(model: nn.Module, train_dataloader: DataLoader, args: Namespace,
 
 
 @torch.no_grad
-def evaluate(model: nn.Module, valid_dataloader: DataLoader, metrics_to_calculate: list[str], verbose: bool = False) -> dict[str, float]:
+def evaluate(model: nn.Module, valid_dataloader: DataLoader, metrics_to_calculate: list[str], device: str, verbose: bool = False) -> dict[str, float]:
     model.eval()
 
     progress_bar = tqdm(total=len(valid_dataloader))
@@ -76,6 +80,10 @@ def evaluate(model: nn.Module, valid_dataloader: DataLoader, metrics_to_calculat
     logits = []
 
     for input_data, attention_mask, label in valid_dataloader:
+        input_data = input_data.to(device)
+        attention_mask = attention_mask.to(device)
+        labels = label.to(device)
+
         logit = model(input_data, attention_mask)
 
         logits.append(logit)
@@ -91,7 +99,7 @@ def evaluate(model: nn.Module, valid_dataloader: DataLoader, metrics_to_calculat
     progress_bar.close()
 
     if verbose:
-        metrics_string = [f"{key}: {value}" for key, value in metrics].join("\n")
+        metrics_string = "\n".join([f"{key}: {value}" for key, value in metrics.items()])
         print(metrics_string)
 
     return metrics
