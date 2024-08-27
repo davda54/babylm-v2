@@ -70,7 +70,7 @@ def import_architecture(architecture):
             from model_qk_layernorm import Bert
         case _:
             raise ValueError(f"The architecture cannot be {args.architecture}, it has to be one of the following: base, attglu, attgate, densemod, densesubmod, densecont, elc, qkln.")
-    
+
     return Bert
 
 
@@ -131,8 +131,8 @@ if __name__ == "__main__":
     train(model, train_dataloader, args, optimizer, scheduler, device, valid_dataloader, args.verbose)
 
     if valid_dataloader is not None:
-        metrics = evaluate(model, valid_dataloader, args.metrics, args.verbose)
-        with (args.results_dir / f"results_{args.model_path_or_name.stem}_{args.task}").open("r") as file:
+        metrics = evaluate(model, valid_dataloader, args.metrics, device, args.verbose)
+        with (args.results_dir / f"results_{args.model_path_or_name.stem}_{args.task}.txt").open("w") as file:
             file.write("\n".join([f"{key}: {value}" for key, value in metrics.item()]))
 
 

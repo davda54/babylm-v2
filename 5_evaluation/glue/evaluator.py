@@ -23,7 +23,7 @@ def train(model: nn.Module, train_dataloader: DataLoader, args: Namespace, optim
         step = train_epoch(model, train_dataloader, args, epoch, step, total_steps, optimizer, scheduler, device, verbose)
 
         if valid_dataloader is not None:
-            metrics = evaluate(model, valid_dataloader, device, args.metrics, verbose)
+            metrics = evaluate(model, valid_dataloader, args.metrics, device, verbose)
             if args.keep_best_model:
                 score = metrics[args.metric_for_valid]
 
@@ -82,7 +82,6 @@ def evaluate(model: nn.Module, valid_dataloader: DataLoader, metrics_to_calculat
     for input_data, attention_mask, label in valid_dataloader:
         input_data = input_data.to(device)
         attention_mask = attention_mask.to(device)
-        labels = label.to(device)
 
         logit = model(input_data, attention_mask)
 
