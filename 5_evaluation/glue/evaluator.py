@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import torch
 from torch.nn import functional as F
 from tqdm import tqdm
@@ -5,10 +7,14 @@ from typing import TYPE_CHECKING
 from sklearn.metrics import accuracy_score, f1_score, matthews_corrcoef
 
 if TYPE_CHECKING:
-    import argparse
+    from argparse import Namespace
+    from torch.utils.data import DataLoader
+    import torch.nn as nn
+    from torch.optim import Optimizer
+    from torch.optim.lr_scheduler import LRScheduler
 
 
-def train(model, train_dataloader, args, optimizer, scheduler, valid_dataloader=None, verbose=False):
+def train(model: nn.Module, train_dataloader: DataLoader, args: Namespace, optimizer: Optimizer, scheduler: LRScheduler, valid_dataloader: DataLoader = None, verbose: bool = False) -> None:
     total_steps = args.epochs * len(train_dataloader)
     step = 0
     best_score = None
@@ -18,17 +24,20 @@ def train(model, train_dataloader, args, optimizer, scheduler, valid_dataloader=
 
         if valid_dataloader is not None:
             metrics = evaluate(model, valid_dataloader, args.metrics, verbose)
-            score = metrics[args.metric_for_valid]
+            if args.keep_best_model:
+                score = metrics[args.metric_for_valid]
 
         if args.save:
-            if args.keep_best_model and compare_scores(best_score, score, args.bigger_better):
+            if args.keep_best_model and compare_scores(best_score, score, args.higher_is_better):
                 save_model(model, args)
                 best_score = score
             elif not args.keep_best_model:
                 save_model(model, args)
 
 
-def train_epoch(model, train_dataloader, args, epoch, global_step, total_steps, optimizer, scheduler, verbose=False):
+def train_epoch(model: nn.Module, train_dataloader: DataLoader, args: Namespace, epoch: int, global_step: int, total_steps: int, optimizer: Optimizer, scheduler: LRScheduler, verbose: bool = False) -> int:
+    model.train()
+
     progress_bar = tqdm(initial=global_step, total=total_steps)
 
     for input_data, attention_mask, labels in train_dataloader:
@@ -58,7 +67,9 @@ def train_epoch(model, train_dataloader, args, epoch, global_step, total_steps, 
 
 
 @torch.no_grad
-def evaluate(model, valid_dataloader, metrics_to_calculate, verbose=False):
+def evaluate(model: nn.Module, valid_dataloader: DataLoader, metrics_to_calculate: list[str], verbose: bool = False) -> dict[str, float]:
+    model.eval()
+
     progress_bar = tqdm(total=len(valid_dataloader))
 
     labels = []
@@ -87,13 +98,13 @@ def evaluate(model, valid_dataloader, metrics_to_calculate, verbose=False):
 
 
 # TODO
-def predict_classification(model, pred_dataloader, verbose=False):
+def predict_classification(model: nn.Module, args: Namespace, pred_dataloader: DataLoader, verbose: bool = False) -> None:
     pass
 
 
-def save_model(model: torch.Tensor, args: argparse.NameSpace) -> None:
+def save_model(model: torch.Tensor, args: Namespace) -> None:
     model_to_save = model.module if hasattr(model, 'module') else model
-    torch.save(model_to_save.state_dict(), args.output_path)
+    torch.save(model_to_save.state_dict(), args.save_dir)
 
 
 def compare_scores(best: float, current: float, bigger_better: bool) -> bool:
@@ -107,7 +118,7 @@ def compare_scores(best: float, current: float, bigger_better: bool) -> bool:
         return False
 
 
-def calculate_metrics(logits: torch.Tensor, labels: torch.Tensor, metrics_to_calculate: list) -> dict:
+def calculate_metrics(logits: torch.Tensor, labels: torch.Tensor, metrics_to_calculate: list[str]) -> dict[str, float]:
     predictions = logits.argmax(dim=-1).detach().numpy()
     labels = labels.detach().numpy()
     metrics = dict()
@@ -119,5 +130,7 @@ def calculate_metrics(logits: torch.Tensor, labels: torch.Tensor, metrics_to_cal
             metrics["accuracy"] = accuracy_score(labels, predictions)
         elif metric == "mcc":
             metrics["mcc"] = matthews_corrcoef(labels, predictions)
+        else:
+            print(f"Metric {metric} is unknown / not implemented. It will be skipped!")
 
     return metrics

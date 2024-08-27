@@ -1,0 +1,522 @@
+{"sentence": "She didn't talk to one student.", "label": 1, "idx": 550}
+{"sentence": "John heard that they criticized themselves.", "label": 0, "idx": 460}
+{"sentence": "Some of them made as many errors as 20.", "label": 1, "idx": 337}
+{"sentence": "Books were taken from no student and given to Mary.", "label": 1, "idx": 636}
+{"sentence": "The visitor rang the bell.", "label": 1, "idx": 142}
+{"sentence": "He turned into a frog.", "label": 1, "idx": 149}
+{"sentence": "Whenever Russia has made a major political blunder, the U.S. has too.", "label": 1, "idx": 664}
+{"sentence": "These stockings will run.", "label": 1, "idx": 767}
+{"sentence": "Bill ate the peaches and Harry did the grapes.", "label": 0, "idx": 648}
+{"sentence": "Smith loaned a valuable collection of manuscripts to the library.", "label": 1, "idx": 443}
+{"sentence": "Some people yell at the dogs in my neighborhood.", "label": 1, "idx": 792}
+{"sentence": "Who is she trying to make up to now?", "label": 1, "idx": 90}
+{"sentence": "This week will be a difficult one for us.", "label": 1, "idx": 240}
+{"sentence": "The paper was written by John up.", "label": 0, "idx": 616}
+{"sentence": "The wealthy young man bought that piano for his secret fianc\u00e9e.", "label": 1, "idx": 401}
+{"sentence": "The witch poisoned the children.", "label": 1, "idx": 204}
+{"sentence": "A grandfather clock ticked in the hallway.", "label": 1, "idx": 205}
+{"sentence": "Jackie accompanied Rose.", "label": 1, "idx": 216}
+{"sentence": "She can run an accelerator.", "label": 1, "idx": 766}
+{"sentence": "The bucket was kicked by Pat.", "label": 1, "idx": 959}
+{"sentence": "Tabs were kept on each agent by the other.", "label": 1, "idx": 634}
+{"sentence": "We recommend to eat less cake and pastry.", "label": 1, "idx": 220}
+{"sentence": "Susan frightens her.", "label": 1, "idx": 873}
+{"sentence": "We elected me.", "label": 1, "idx": 67}
+{"sentence": "Mary was respected by John.", "label": 1, "idx": 611}
+{"sentence": "Leslie used a pen.", "label": 1, "idx": 760}
+{"sentence": "Agamemnon seems to be a maniac", "label": 1, "idx": 516}
+{"sentence": "Dana walking and Leslie running.", "label": 0, "idx": 890}
+{"sentence": "The idea dismayed the Prime Minister that the Dome was dull.", "label": 1, "idx": 414}
+{"sentence": "John considers Bill to be silly.", "label": 1, "idx": 1039}
+{"sentence": "The only person that I like whose kids Dana is willing to put up with is Pat.", "label": 1, "idx": 723}
+{"sentence": "I never know which papers Sandy has read, but I usually know how many.", "label": 1, "idx": 559}
+{"sentence": "The committee will study the feasibility of setting up a national computer network.", "label": 1, "idx": 258}
+{"sentence": "The newspaper has reported that they are about to appoint someone, but I can't remember who they are about to appoint.", "label": 1, "idx": 555}
+{"sentence": "I know a man who Tom drives as drives.", "label": 0, "idx": 77}
+{"sentence": "The problem perceives easily.", "label": 0, "idx": 65}
+{"sentence": "How many feature structures categories can label the first daughter?", "label": 1, "idx": 829}
+{"sentence": "Gilgamesh is having fought the dragon.", "label": 0, "idx": 500}
+{"sentence": "How did you guess that he fixed the computer?", "label": 1, "idx": 302}
+{"sentence": "The only person whose kids Dana is willing to put up with is Pat.", "label": 1, "idx": 727}
+{"sentence": "Tom's dog with one eye attacked Fred's.", "label": 1, "idx": 678}
+{"sentence": "The defendants walks.", "label": 0, "idx": 828}
+{"sentence": "We celebrated in the streets.", "label": 1, "idx": 837}
+{"sentence": "Harriet admired Mr Knightley.", "label": 1, "idx": 416}
+{"sentence": "It annoys me that Fido barks.", "label": 1, "idx": 317}
+{"sentence": "The book that I like which everyone else in the class hates was written by John.", "label": 1, "idx": 724}
+{"sentence": "Clinton is anxious to find out which budget dilemmas Panetta would be willing to tackle in a certain way, but he won't say in which.", "label": 1, "idx": 592}
+{"sentence": "The bird sing.", "label": 0, "idx": 812}
+{"sentence": "Sandy removed her ballet shoes.", "label": 1, "idx": 239}
+{"sentence": "John left us orders to follow Pete.", "label": 1, "idx": 1004}
+{"sentence": "I know how many assignments I've graded, but I don't know how many Bill has.", "label": 1, "idx": 596}
+{"sentence": "Sandy is very anxious to see if the students will be able to solve the homework problem in a particular way, but she won't tell us which.", "label": 1, "idx": 590}
+{"sentence": "Students studying English reads Conrad's Heart of Darkness while at university.", "label": 0, "idx": 261}
+{"sentence": "Jack is the person with whom Jenny fell in love with.", "label": 0, "idx": 307}
+{"sentence": "John tried to leave.", "label": 1, "idx": 977}
+{"sentence": "Lou put the umbrella was broken.", "label": 0, "idx": 907}
+{"sentence": "The cat got bitten.", "label": 1, "idx": 925}
+{"sentence": "Bill was struck by John as stupid.", "label": 0, "idx": 973}
+{"sentence": "Chris was handed Sandy a note.", "label": 0, "idx": 915}
+{"sentence": "Fortunately Hermione passed biology", "label": 1, "idx": 502}
+{"sentence": "Mary thinks that she is smart.", "label": 1, "idx": 461}
+{"sentence": "You may pick every flower, but leave a few for Mary.", "label": 0, "idx": 395}
+{"sentence": "John has something for Bill to do.", "label": 1, "idx": 983}
+{"sentence": "Sandra beamed a cheerful welcome.", "label": 1, "idx": 158}
+{"sentence": "Mary asked me if, in St. Louis, John could rent a house cheap.", "label": 1, "idx": 703}
+{"sentence": "The younger woman might have been tall and, and the older one definitely was, blond.", "label": 0, "idx": 108}
+{"sentence": "I saw that gas can explode.", "label": 1, "idx": 221}
+{"sentence": "You should sit before there.", "label": 0, "idx": 464}
+{"sentence": "John decided for Bill to get the prize.", "label": 0, "idx": 991}
+{"sentence": "This is my favorite.", "label": 1, "idx": 789}
+{"sentence": "Several firefighters were injured, but it's not known.", "label": 1, "idx": 581}
+{"sentence": "John wants to read Fred's story, and I also want to.", "label": 1, "idx": 50}
+{"sentence": "You kicked yourselves", "label": 1, "idx": 476}
+{"sentence": "I dislike the company in which we placed our trust.", "label": 1, "idx": 715}
+{"sentence": "John owns the book.", "label": 1, "idx": 36}
+{"sentence": "Sharon came the room.", "label": 0, "idx": 146}
+{"sentence": "She was reading the books under the table, but Fred didn't know what books.", "label": 1, "idx": 570}
+{"sentence": "The needle poked the cloth.", "label": 1, "idx": 181}
+{"sentence": "He shouted again, but I don't know who to.", "label": 1, "idx": 579}
+{"sentence": "Which hat did Mike quip that she never wore?", "label": 0, "idx": 94}
+{"sentence": "Susan whispered the news.", "label": 1, "idx": 193}
+{"sentence": "How sane is Peter?", "label": 1, "idx": 87}
+{"sentence": "It isn't because Sue said anything bad about me that I'm angry.", "label": 1, "idx": 327}
+{"sentence": "Herman whipped the sugar and the cream.", "label": 0, "idx": 183}
+{"sentence": "No writer, and no playwright, meets in Vienna.", "label": 0, "idx": 123}
+{"sentence": "Suddenly, there arrived two inspectors from the INS.", "label": 1, "idx": 446}
+{"sentence": "Sarah smiled a charming smile.", "label": 1, "idx": 157}
+{"sentence": "Sandy was trying to work out which students would be able to solve a problem.", "label": 1, "idx": 601}
+{"sentence": "Over the fire there bubbled a fragrant stew.", "label": 1, "idx": 207}
+{"sentence": "She voted for herself.", "label": 1, "idx": 742}
+{"sentence": "John often meets Mary.", "label": 1, "idx": 64}
+{"sentence": "A sick owl doesn't hunt mice.", "label": 1, "idx": 321}
+{"sentence": "Bill must quickly eat the peaches, and Harry must slowly.", "label": 0, "idx": 663}
+{"sentence": "Because she's so pleasant, as for Mary I really like her.", "label": 0, "idx": 330}
+{"sentence": "We celebrated in the streets in the rain on Tuesday in the morning.", "label": 1, "idx": 838}
+{"sentence": "Books were taken from each student and given to Mary by the other.", "label": 0, "idx": 640}
+{"sentence": "That surprised me.", "label": 1, "idx": 786}
+{"sentence": "John became rich.", "label": 1, "idx": 965}
+{"sentence": "He attributed to a short circuit which was caused by an overloaded transducer the fire which destroyed most of my factory.", "label": 1, "idx": 74}
+{"sentence": "John became deadly afraid of flying.", "label": 1, "idx": 439}
+{"sentence": "There is a seat available.", "label": 1, "idx": 933}
+{"sentence": "Neither Von Karajan's recording of Beethoven's 6th on Columbia nor Klemperer's on Angel has the right tempo.", "label": 1, "idx": 673}
+{"sentence": "Burn them!", "label": 1, "idx": 514}
+{"sentence": "I ate a salad that was filled with lima beans.", "label": 1, "idx": 375}
+{"sentence": "She talked to Harry, but I don't know who else.", "label": 1, "idx": 574}
+{"sentence": "These dogs barked.", "label": 1, "idx": 853}
+{"sentence": "It is painting by Klee or drawing by Miro that the museum displays no.", "label": 0, "idx": 807}
+{"sentence": "He can not have been working.", "label": 1, "idx": 19}
+{"sentence": "I'm even sure we got these tickets!", "label": 1, "idx": 325}
+{"sentence": "Jerry attempted to blow up the Pentagon.", "label": 1, "idx": 680}
+{"sentence": "I met the person who left.", "label": 1, "idx": 885}
+{"sentence": "It loved Sandy.", "label": 0, "idx": 948}
+{"sentence": "They yelled.", "label": 1, "idx": 898}
+{"sentence": "Marianne did not leave.", "label": 1, "idx": 17}
+{"sentence": "We arrived about six o'clock", "label": 1, "idx": 499}
+{"sentence": "Mary arranged for, in St. Louis, John to rent a house cheap.", "label": 0, "idx": 704}
+{"sentence": "John is aware of it that Bill is here.", "label": 0, "idx": 1012}
+{"sentence": "Anson believed himself to be handsome.", "label": 1, "idx": 498}
+{"sentence": "They represented seriously to the dean Mary as a genuine linguist.", "label": 0, "idx": 44}
+{"sentence": "Knowing the country well, he took a short cut.", "label": 1, "idx": 410}
+{"sentence": "John is afraid of Bill.", "label": 1, "idx": 245}
+{"sentence": "Some people consider dogs dangerous.", "label": 1, "idx": 802}
+{"sentence": "He danced.", "label": 1, "idx": 364}
+{"sentence": "We believed John to be a fountain in the park.", "label": 0, "idx": 273}
+{"sentence": "a tall building.", "label": 1, "idx": 403}
+{"sentence": "She goes and buying some whiskey.", "label": 0, "idx": 432}
+{"sentence": "I wonder what to be a clown on the cover of.", "label": 0, "idx": 694}
+{"sentence": "I bought three quarts of wine and two of Clorox.", "label": 1, "idx": 666}
+{"sentence": "The students drove cars.", "label": 1, "idx": 895}
+{"sentence": "I was already aware of fact.", "label": 0, "idx": 823}
+{"sentence": "Which house does your friend live?", "label": 0, "idx": 304}
+{"sentence": "To please John is easy.", "label": 1, "idx": 314}
+{"sentence": "The candidates bring advantage to the voters.", "label": 1, "idx": 956}
+{"sentence": "I will see them, but I don't know how many of them.", "label": 1, "idx": 575}
+{"sentence": "The patient was died.", "label": 0, "idx": 921}
+{"sentence": "I gave a book to Bill to read.", "label": 1, "idx": 1032}
+{"sentence": "Tom will smoke the grass, and Reuben has the hash.", "label": 0, "idx": 649}
+{"sentence": "Kim is eager to please Tom.", "label": 1, "idx": 315}
+{"sentence": "Some people yell at noisy dogs in my neighborhood.", "label": 1, "idx": 791}
+{"sentence": "It has been determined that somebody will be appointed; it's just not clear yet who.", "label": 0, "idx": 587}
+{"sentence": "What John promised is to be gentle.", "label": 1, "idx": 440}
+{"sentence": "What the water did to the bottle was fill it.", "label": 0, "idx": 32}
+{"sentence": "Sarah promised Catherine her old car, but then gave it to her son instead.", "label": 1, "idx": 134}
+{"sentence": "The defendants denies the allegation.", "label": 0, "idx": 825}
+{"sentence": "They claimed they had settled on something, but it wasn't clear what they had settled on.", "label": 1, "idx": 528}
+{"sentence": "I wonder whose mother died.", "label": 1, "idx": 688}
+{"sentence": "Heidi thinks that Andy should eat salmon flavored candy bars.", "label": 1, "idx": 363}
+{"sentence": "Most columnists claim that a senior White House official has been briefing them, and the newspaper today reveals which one.", "label": 1, "idx": 556}
+{"sentence": "Each student wrote a paper on a Mayan language, but I don't remember which one.", "label": 1, "idx": 553}
+{"sentence": "The cat were bitten by the dog.", "label": 0, "idx": 926}
+{"sentence": "We think that Leslie likes ourselves.", "label": 0, "idx": 751}
+{"sentence": "If you had eaten more, you would want less.", "label": 1, "idx": 3}
+{"sentence": "Few dog barked.", "label": 0, "idx": 860}
+{"sentence": "John was believed to be telling the truth by Mary.", "label": 1, "idx": 626}
+{"sentence": "John told Mary that it was important to Fred to leave early.", "label": 1, "idx": 998}
+{"sentence": "Books were taken from each student and given to Mary.", "label": 1, "idx": 639}
+{"sentence": "That's a new car dealership.", "label": 1, "idx": 773}
+{"sentence": "We think that Leslie likes us.", "label": 1, "idx": 750}
+{"sentence": "It gave Sandy a thrill that the Cardinal won the game.", "label": 1, "idx": 946}
+{"sentence": "Leslie told us about us.", "label": 0, "idx": 748}
+{"sentence": "Bill ate more peaches than Harry did grapes.", "label": 1, "idx": 647}
+{"sentence": "A proof that the claim had been. made was giver that John had lied.", "label": 0, "idx": 73}
+{"sentence": "The angrier Mary got, the more she looked at pictures.", "label": 1, "idx": 8}
+{"sentence": "I live at the place where Route 150 crosses the Hudson River and my dad lives at it too.", "label": 0, "idx": 89}
+{"sentence": "Fluffy is sick, which not everybody knows.", "label": 1, "idx": 106}
+{"sentence": "The book is boring.", "label": 1, "idx": 417}
+{"sentence": "I dislike the people in who we placed our trust.", "label": 0, "idx": 714}
+{"sentence": "We made them be rude.", "label": 1, "idx": 259}
+{"sentence": "We created a monster.", "label": 1, "idx": 822}
+{"sentence": "Those pictures of us offended us.", "label": 1, "idx": 753}
+{"sentence": "I want that Bill left to remain a secret.", "label": 0, "idx": 76}
+{"sentence": "The men will all leave.", "label": 1, "idx": 42}
+{"sentence": "The kennel which Mary made and Fido sleeps has been stolen.", "label": 0, "idx": 399}
+{"sentence": "It would be unwise for there to be no fire exit.", "label": 1, "idx": 705}
+{"sentence": "The bills passed by the House yesterday that we objected to were vetoed.", "label": 1, "idx": 736}
+{"sentence": "Who always drinks milk?", "label": 1, "idx": 683}
+{"sentence": "Susan devoted herself to linguistics.", "label": 1, "idx": 876}
+{"sentence": "Henry found that Bill is sad.", "label": 1, "idx": 462}
+{"sentence": "the putter of books left.", "label": 0, "idx": 891}
+{"sentence": "Since Jill said Joe had invited Sue, we didn't have to ask who.", "label": 0, "idx": 546}
+{"sentence": "I read some of the book.", "label": 1, "idx": 262}
+{"sentence": "I served leek soup to my guests.", "label": 1, "idx": 535}
+{"sentence": "The horse that was raced past the barn fell.", "label": 1, "idx": 900}
+{"sentence": "Water bubbled up out of the kettle.", "label": 1, "idx": 30}
+{"sentence": "There was some particular dog who saved every family.", "label": 1, "idx": 872}
+{"sentence": "Kris donated a book to the library.", "label": 1, "idx": 892}
+{"sentence": "I met the man who grows peaches.", "label": 1, "idx": 309}
+{"sentence": "John sounded very.", "label": 0, "idx": 230}
+{"sentence": "A pilot could be flying this plane.", "label": 1, "idx": 388}
+{"sentence": "Of whom are you thinking?", "label": 1, "idx": 964}
+{"sentence": "John is sick.", "label": 1, "idx": 969}
+{"sentence": "Jason persuaded the doctor to treat Medea", "label": 1, "idx": 481}
+{"sentence": "Fed knows which politician her to vote for.", "label": 0, "idx": 301}
+{"sentence": "Though he may hate those that criticize Carter, it doesn't matter.", "label": 1, "idx": 331}
+{"sentence": "John was tall, but I don't know on what occasions.", "label": 0, "idx": 542}
+{"sentence": "Everyone relies on someone. It's unclear who.", "label": 1, "idx": 552}
+{"sentence": "Nobody saw Pat.", "label": 1, "idx": 952}
+{"sentence": "Chris was handed a note.", "label": 1, "idx": 914}
+{"sentence": "Which topic did you choose without getting his approval?", "label": 1, "idx": 310}
+{"sentence": "Jason happens to appear to seem to be sick.", "label": 1, "idx": 506}
+{"sentence": "You've really lived it up.", "label": 1, "idx": 159}
+{"sentence": "TV puts dumb ideas in children's heads.", "label": 1, "idx": 916}
+{"sentence": "Mary will read Fred's story, and Joe will read Holly's.", "label": 1, "idx": 52}
+{"sentence": "I won't have some money.", "label": 0, "idx": 97}
+{"sentence": "The bookcase ran", "label": 0, "idx": 524}
+{"sentence": "The TA's have been arguing about whether some student or other should pass, but I can't now remember which one.", "label": 0, "idx": 589}
+{"sentence": "Maxwell is quite a doctor.", "label": 1, "idx": 107}
+{"sentence": "It is easy to play sonatas on this violin.", "label": 1, "idx": 112}
+{"sentence": "It is not true that I might be going to the party.", "label": 1, "idx": 479}
+{"sentence": "Hopefully, we'll make it through the winter without snow.", "label": 1, "idx": 341}
+{"sentence": "many information was provided.", "label": 0, "idx": 217}
+{"sentence": "I lent the book partway to Tony.", "label": 0, "idx": 135}
+{"sentence": "I like the book which you gave me.", "label": 1, "idx": 405}
+{"sentence": "Some people yell at noisy dogs.", "label": 1, "idx": 794}
+{"sentence": "John counted on Bill to get there on time.", "label": 1, "idx": 995}
+{"sentence": "We never found any of the unicorns.", "label": 1, "idx": 292}
+{"sentence": "Max seemed to be trying to force Ted to leave the room, and Walt to stay a little longer.", "label": 0, "idx": 657}
+{"sentence": "John was spoken to by Mary.", "label": 1, "idx": 617}
+{"sentence": "This proved a decisive factor.", "label": 1, "idx": 243}
+{"sentence": "Pat is hate Chris.", "label": 0, "idx": 930}
+{"sentence": "People with children who use drugs should be locked up.", "label": 1, "idx": 803}
+{"sentence": "I wonder to whom they dedicated the building.", "label": 1, "idx": 690}
+{"sentence": "Ethel wishes to ask you some awkward questions.", "label": 1, "idx": 418}
+{"sentence": "Visiting relatives can be boring.", "label": 1, "idx": 771}
+{"sentence": "It was believed by the students that they would have an exam.", "label": 1, "idx": 629}
+{"sentence": "Mike talked about politics yesterday to my friends.", "label": 1, "idx": 92}
+{"sentence": "John promised Bill to leave.", "label": 1, "idx": 976}
+{"sentence": "That professor is feared by all students.", "label": 1, "idx": 610}
+{"sentence": "One of Korea's most famous poets wrote these lines.", "label": 1, "idx": 293}
+{"sentence": "In which way is Sandy very anxious to see if the students will be able to solve the homework problem?", "label": 0, "idx": 594}
+{"sentence": "Fido barks.", "label": 1, "idx": 954}
+{"sentence": "John put the book in the box.", "label": 1, "idx": 249}
+{"sentence": "I sent the package halfway around the world.", "label": 1, "idx": 127}
+{"sentence": "The socks are ready for for you to put on to be planned.", "label": 0, "idx": 111}
+{"sentence": "Sam doesn't play bassoon, nor Medusa oboe.", "label": 1, "idx": 644}
+{"sentence": "Gwen hit the baseball.", "label": 1, "idx": 343}
+{"sentence": "Who did John send the book?", "label": 1, "idx": 413}
+{"sentence": "John gave Bill the dog dead.", "label": 1, "idx": 972}
+{"sentence": "Who did you get an accurate description of?", "label": 1, "idx": 482}
+{"sentence": "Henri wants to buy which books about cooking?", "label": 1, "idx": 441}
+{"sentence": "Mary claimed that eating cabbage, Holly shouldn't.", "label": 1, "idx": 53}
+{"sentence": "I saw Bill while you did so Mary.", "label": 0, "idx": 471}
+{"sentence": "Each of the performers came in, but were sitting so far back that we couldn't see who.", "label": 0, "idx": 549}
+{"sentence": "We wanted to invite someone, but we couldn't decide who to.", "label": 0, "idx": 51}
+{"sentence": "Ricky can be relied on.", "label": 1, "idx": 296}
+{"sentence": "That Chris knew the answer occurred to Pat.", "label": 1, "idx": 943}
+{"sentence": "John loaded the wagon full with hay.", "label": 1, "idx": 961}
+{"sentence": "The book was seen by Mary.", "label": 1, "idx": 619}
+{"sentence": "Dumb ideas are put in children's heads.", "label": 1, "idx": 918}
+{"sentence": "The storm arrived after the picnic.", "label": 1, "idx": 849}
+{"sentence": "Who who you like does Sandy also like?", "label": 1, "idx": 734}
+{"sentence": "I demand that the more John eat, the more he pays.", "label": 0, "idx": 6}
+{"sentence": "The building's the roof is leaking.", "label": 0, "idx": 353}
+{"sentence": "I'm sure I would like him to eat fruit more than I would cookies.", "label": 1, "idx": 61}
+{"sentence": "Terry delighted.", "label": 0, "idx": 818}
+{"sentence": "Chris was handed Sandy a note by Pat.", "label": 0, "idx": 913}
+{"sentence": "The birds gives the worm a tug.", "label": 0, "idx": 816}
+{"sentence": "John asked.", "label": 1, "idx": 449}
+{"sentence": "Bill's wine from France and Ted's from California cannot be compared.", "label": 1, "idx": 671}
+{"sentence": "John likes some students, but I don't know who.", "label": 1, "idx": 565}
+{"sentence": "Anybody who attended last week's huge rally signed the petition.", "label": 1, "idx": 390}
+{"sentence": "The bears sniffed", "label": 1, "idx": 473}
+{"sentence": "That movie always shocks people.", "label": 1, "idx": 144}
+{"sentence": "John was struck by Bill's idiocy.", "label": 1, "idx": 975}
+{"sentence": "There seemed to be intelligent.", "label": 0, "idx": 271}
+{"sentence": "Kim gave a dollar to Bobbie and a dime to Jean.", "label": 1, "idx": 434}
+{"sentence": "Ann bought a first edition of Richard III for $1000.", "label": 1, "idx": 438}
+{"sentence": "The jury believed the defendant lied.", "label": 1, "idx": 833}
+{"sentence": "Put a picture of Bill on your desk before tomorrow, this girl in the red coat will put a picture of Bill on your desk before tomorrow.", "label": 0, "idx": 436}
+{"sentence": "The more you would want, the less you would eat.", "label": 0, "idx": 5}
+{"sentence": "What additional categories and rules would be required to handle these verbs?", "label": 1, "idx": 821}
+{"sentence": "The TA's have been arguing about whether some student or other should pass, but I can't now remember which one.", "label": 1, "idx": 586}
+{"sentence": "We talked to them about there.", "label": 0, "idx": 939}
+{"sentence": "They have no in.", "label": 0, "idx": 224}
+{"sentence": "Some people consider dogs in my neighborhood dangerous.", "label": 1, "idx": 801}
+{"sentence": "Sam offered the ball out of the basket.", "label": 0, "idx": 129}
+{"sentence": "If the ants were called elephants and elephants ants, I'd be able to squash an elephant.", "label": 1, "idx": 650}
+{"sentence": "Mary beautifully plays the violin.", "label": 0, "idx": 39}
+{"sentence": "Brown presented a plaque to Jones.", "label": 1, "idx": 176}
+{"sentence": "The tub leaked water.", "label": 1, "idx": 31}
+{"sentence": "The rules require that the executives be polite.", "label": 1, "idx": 254}
+{"sentence": "John was lots more obnoxious than Fred.", "label": 1, "idx": 11}
+{"sentence": "he had spent five thousand dollars.", "label": 1, "idx": 300}
+{"sentence": "Give me the phone number of the person whose mother's dog died.", "label": 1, "idx": 691}
+{"sentence": "Everyone hopes that he will sleep.", "label": 1, "idx": 467}
+{"sentence": "Everybody who attended last week's huge rally, whoever they were, signed the petition.", "label": 1, "idx": 389}
+{"sentence": "Phillip gave the medal to the soldier.", "label": 1, "idx": 361}
+{"sentence": "The more Fred is obnoxious, the less attention you should pay to him.", "label": 1, "idx": 10}
+{"sentence": "Carla shoveled the walk.", "label": 1, "idx": 166}
+{"sentence": "I didn't have a red cent.", "label": 1, "idx": 349}
+{"sentence": "Clearly, John probably will immediately learn French perfectly.", "label": 1, "idx": 40}
+{"sentence": "Pat was awarded the Golden Fleece Award and very upset about it.", "label": 1, "idx": 427}
+{"sentence": "Michelle kept the desk with the papers.", "label": 0, "idx": 179}
+{"sentence": "I know which book Mag read, and which book Bob said that you hadn't.", "label": 1, "idx": 59}
+{"sentence": "I'm sure we even got these tickets!", "label": 1, "idx": 324}
+{"sentence": "I won't ask you to believe that he tried to force me to give her any money.", "label": 1, "idx": 99}
+{"sentence": "We put the pigs in a pen.", "label": 1, "idx": 761}
+{"sentence": "Bill ate the peaches, and Harry did, too.", "label": 1, "idx": 662}
+{"sentence": "The tube was escaped by gas.", "label": 0, "idx": 29}
+{"sentence": "Linda taped the picture to the wall.", "label": 1, "idx": 184}
+{"sentence": "They noticed the painting, but I don't know for how long.", "label": 0, "idx": 541}
+{"sentence": "The more pictures of him that appear in the news, the more embarrassed John becomes.", "label": 1, "idx": 14}
+{"sentence": "That he is here is clear.", "label": 1, "idx": 1006}
+{"sentence": "John's mother likes himself.", "label": 0, "idx": 457}
+{"sentence": "There is a nurse available.", "label": 1, "idx": 465}
+{"sentence": "The soup cooks, thickens.", "label": 1, "idx": 447}
+{"sentence": "John promise Mary to shave himself.", "label": 1, "idx": 469}
+{"sentence": "That he was hungry, John whined.", "label": 0, "idx": 328}
+{"sentence": "I talked to Winston about himself.", "label": 1, "idx": 101}
+{"sentence": "He announced he had eaten the asparagus, but we didn't know what.", "label": 0, "idx": 569}
+{"sentence": "John was spoke by Mary to.", "label": 0, "idx": 622}
+{"sentence": "I will fix the computer for Carol.", "label": 1, "idx": 442}
+{"sentence": "Tony sent Mo a picture that he painted, but it's not clear with what.", "label": 0, "idx": 606}
+{"sentence": "The police sprayed water on the protesters.", "label": 1, "idx": 894}
+{"sentence": "I wonder in whom them to place their trust.", "label": 0, "idx": 707}
+{"sentence": "The children amused.", "label": 0, "idx": 192}
+{"sentence": "Sam gave the ball out of the basket.", "label": 0, "idx": 128}
+{"sentence": "In which car was the man seen?", "label": 1, "idx": 397}
+{"sentence": "There is a monster in Loch Ness.", "label": 1, "idx": 927}
+{"sentence": "The bread cuts easily.", "label": 1, "idx": 139}
+{"sentence": "The teacher handed the student.", "label": 0, "idx": 810}
+{"sentence": "Most columnists claim that a senior White House official has been briefing them, but none will reveal which one.", "label": 1, "idx": 557}
+{"sentence": "She was bathing, but I couldn't make out who.", "label": 0, "idx": 537}
+{"sentence": "Mira condemned Terry for the accident.", "label": 1, "idx": 152}
+{"sentence": "Newsweek about crime appeared on the newsstands.", "label": 0, "idx": 845}
+{"sentence": "Gould's performance of Bach on the piano doesn't please me anywhere as much as Ross's on the harpsichord.", "label": 0, "idx": 674}
+{"sentence": "Ann may spend her vacation in Italy.", "label": 1, "idx": 288}
+{"sentence": "I can't remember the name of somebody who had misgivings.", "label": 0, "idx": 122}
+{"sentence": "In which way is Clinton anxious to find out which budget dilemmas Panetta would be willing to solve?", "label": 0, "idx": 595}
+{"sentence": "A student who to talk to us just walked in.", "label": 0, "idx": 696}
+{"sentence": "Sandy was trying to work out which students would be able to solve a certain problem.", "label": 1, "idx": 599}
+{"sentence": "The elixir was hidden in a hole in the ground", "label": 1, "idx": 490}
+{"sentence": "The farmer loaded the cart with apples.", "label": 1, "idx": 136}
+{"sentence": "The soundly and furry cat slept.", "label": 0, "idx": 870}
+{"sentence": "John has a fear of dogs.", "label": 1, "idx": 352}
+{"sentence": "Any pilot on duty today could be flying this plane.", "label": 1, "idx": 394}
+{"sentence": "The correspondence school made Bill a good typist.", "label": 1, "idx": 1036}
+{"sentence": "Sylvia was slapping Jeff upside the head in martial arts class.", "label": 1, "idx": 366}
+{"sentence": "Medea denied poisoning the phoenix.", "label": 1, "idx": 489}
+{"sentence": "A seat available was in the last row.", "label": 0, "idx": 934}
+{"sentence": "Some sentences go on and on and on.", "label": 1, "idx": 784}
+{"sentence": "The cake that Jones got was more delicious than the one that Smith got.", "label": 1, "idx": 219}
+{"sentence": "John tried to be a good boy.", "label": 1, "idx": 25}
+{"sentence": "The love of my life and mother of my children would never do such a thing.", "label": 1, "idx": 805}
+{"sentence": "John regards Bill as a good friend.", "label": 1, "idx": 251}
+{"sentence": "I want to try and buy some whiskey.", "label": 1, "idx": 431}
+{"sentence": "The crocodile devoured the doughnut.", "label": 1, "idx": 244}
+{"sentence": "It mattered that the Giants had lost.", "label": 1, "idx": 940}
+{"sentence": "That acorn will grow into an oak tree.", "label": 1, "idx": 148}
+{"sentence": "Carmen bought Mary a dress.", "label": 1, "idx": 177}
+{"sentence": "Drew believes I think Rosie loves magazine ads.", "label": 1, "idx": 339}
+{"sentence": "I saw even the student.", "label": 1, "idx": 450}
+{"sentence": "The sailors rode the breeze clear of the rocks.", "label": 1, "idx": 0}
+{"sentence": "We tried to amuse them that Kim was singing.", "label": 0, "idx": 702}
+{"sentence": "That you will marry any student is not certain.", "label": 1, "idx": 125}
+{"sentence": "Lou forgot the umbrella.", "label": 1, "idx": 903}
+{"sentence": "There is a unicorn in the garden.", "label": 1, "idx": 931}
+{"sentence": "It bothers me that John coughs.", "label": 1, "idx": 313}
+{"sentence": "did the policeman meet in the park?", "label": 1, "idx": 227}
+{"sentence": "I noticed the.", "label": 0, "idx": 787}
+{"sentence": "Paperback books lift onto the table easily.", "label": 0, "idx": 160}
+{"sentence": "Emma made Harriet some food.", "label": 1, "idx": 419}
+{"sentence": "Amanda carried the package to Pamela.", "label": 1, "idx": 171}
+{"sentence": "Which book's, author did you meet who you liked?", "label": 0, "idx": 730}
+{"sentence": "how silly is Bill considered?", "label": 1, "idx": 967}
+{"sentence": "Who do you think Tom saw?", "label": 1, "idx": 299}
+{"sentence": "It was expected by the reporters that the principal would fire some teacher.", "label": 1, "idx": 93}
+{"sentence": "The book that I said that I'd never read.", "label": 1, "idx": 477}
+{"sentence": "Linda taped the picture onto the wall.", "label": 1, "idx": 185}
+{"sentence": "there is nothing to do.", "label": 1, "idx": 982}
+{"sentence": "It was believed that Bill was tardy.", "label": 1, "idx": 1015}
+{"sentence": "Us love they.", "label": 0, "idx": 45}
+{"sentence": "Sandy was trying to work out which students would be able to solve a certain problem, but she wouldn't tell us which one.", "label": 0, "idx": 584}
+{"sentence": "Lee saw the student with a telescope.", "label": 1, "idx": 769}
+{"sentence": "Jack hates Sue and is loved by Mary.", "label": 1, "idx": 641}
+{"sentence": "What Mary did Bill was give a book.", "label": 0, "idx": 472}
+{"sentence": "It is the problem that he is here.", "label": 0, "idx": 1017}
+{"sentence": "John's arriving dead surprised me.", "label": 1, "idx": 1001}
+{"sentence": "The defendant walks.", "label": 1, "idx": 826}
+{"sentence": "If only Superman would stop flying planes!", "label": 1, "idx": 772}
+{"sentence": "Sally kissed himself.", "label": 0, "idx": 338}
+{"sentence": "Sandy was trying to work out which students would be able to solve a certain problem, but she wouldn't tell us which one.", "label": 1, "idx": 583}
+{"sentence": "Drowning cats, which is against the law, are hard to rescue.", "label": 0, "idx": 78}
+{"sentence": "Rusty talked about himself only after Mary did talk about him.", "label": 1, "idx": 62}
+{"sentence": "That Sam sometimes didn't sleep must have pleased somebody.", "label": 1, "idx": 100}
+{"sentence": "Kim put in the box.", "label": 0, "idx": 252}
+{"sentence": "Wind was gotten of a plot to negotiate an honorable end to the war in Vietnam.", "label": 0, "idx": 91}
+{"sentence": "They chased the man with the car.", "label": 1, "idx": 348}
+{"sentence": "Who did they see someone?", "label": 0, "idx": 608}
+{"sentence": "Sharon fainted from hunger.", "label": 1, "idx": 203}
+{"sentence": "The proof this set is recursive is difficult.", "label": 0, "idx": 82}
+{"sentence": "Frank Churchill crossed the street.", "label": 1, "idx": 423}
+{"sentence": "Anson thought that himself was happy.", "label": 0, "idx": 501}
+{"sentence": "John and someone were dancing together, but I don't know who.", "label": 0, "idx": 585}
+{"sentence": "Mary wonders that Bill will come.", "label": 0, "idx": 452}
+{"sentence": "Kim depends for Sandy.", "label": 0, "idx": 248}
+{"sentence": "The committee knows whose efforts to achieve peace the world should honor.", "label": 1, "idx": 303}
+{"sentence": "John is eager.", "label": 1, "idx": 26}
+{"sentence": "We gave ourselves to the cause.", "label": 1, "idx": 747}
+{"sentence": "There tended to be a lot of discussion.", "label": 1, "idx": 24}
+{"sentence": "It is obvious that Pat is lying.", "label": 1, "idx": 928}
+{"sentence": "I remembered having kissed Mary.", "label": 1, "idx": 48}
+{"sentence": "Jessica loaded boxes on the wagon.", "label": 1, "idx": 163}
+{"sentence": "Which report that John was incompetent did he submit?", "label": 0, "idx": 68}
+{"sentence": "John left singing.", "label": 1, "idx": 970}
+{"sentence": "You will believe Bob.", "label": 1, "idx": 20}
+{"sentence": "John considers Bill silly.", "label": 1, "idx": 1038}
+{"sentence": "Everybody around here who ever buys anything on credit talks in his sleep.", "label": 1, "idx": 121}
+{"sentence": "The ship sank, but I don't know with what.", "label": 0, "idx": 540}
+{"sentence": "Which king did you ask which city invaded?", "label": 0, "idx": 511}
+{"sentence": "John convinced Bill that Mary should sleep.", "label": 1, "idx": 470}
+{"sentence": "Joan ate dinner with someone but I don't know who with.", "label": 1, "idx": 544}
+{"sentence": "The butler sent the poison to Dinah.", "label": 1, "idx": 505}
+{"sentence": "The box contained the ball from the tree.", "label": 0, "idx": 28}
+{"sentence": "We admired the pictures of ourselves in the album.", "label": 1, "idx": 759}
+{"sentence": "The book what inspired them was very long.", "label": 0, "idx": 685}
+{"sentence": "The teacher disappeared the problem.", "label": 0, "idx": 809}
+{"sentence": "John told Mary that it would be important to leave early.", "label": 1, "idx": 997}
+{"sentence": "John tries to leave the country.", "label": 1, "idx": 275}
+{"sentence": "The fort fluttered with many flags.", "label": 0, "idx": 209}
+{"sentence": "Whose bagels do you like?", "label": 1, "idx": 697}
+{"sentence": "Leslie likes ourselves.", "label": 0, "idx": 740}
+{"sentence": "It's not because I have any sympathy for urban guerillas that I helped him.", "label": 1, "idx": 326}
+{"sentence": "The newspaper has reported that they are about to appoint someone, but I can't remember who the newspaper has reported that they are about to appoint.", "label": 1, "idx": 554}
+{"sentence": "to die is no fun.", "label": 1, "idx": 993}
+{"sentence": "They may grow as high as bamboo.", "label": 1, "idx": 336}
+{"sentence": "It was from six to nine or it took place from six to nine.", "label": 1, "idx": 445}
+{"sentence": "Carmen obtained the spare part at the hardware store.", "label": 1, "idx": 178}
+{"sentence": "It's Anson that I like", "label": 1, "idx": 493}
+{"sentence": "Bill didn't eat the peaches, nor Harry.", "label": 0, "idx": 661}
+{"sentence": "A letter was received that Jones would be upset by.", "label": 1, "idx": 719}
+{"sentence": "Max seemed to be trying to force Ted to leave the room, and Walt, Ira.", "label": 1, "idx": 656}
+{"sentence": "The cat was bitten the mouse.", "label": 0, "idx": 911}
+{"sentence": "John paid me against the book.", "label": 0, "idx": 257}
+{"sentence": "John arranged for himself to get the prize.", "label": 1, "idx": 1041}
+{"sentence": "I know the person whose mother died.", "label": 1, "idx": 686}
+{"sentence": "John is tall on several occasions.", "label": 0, "idx": 539}
+{"sentence": "John likes some students, but I don't know who John likes some students.", "label": 0, "idx": 567}
+{"sentence": "They needn't take this exam.", "label": 1, "idx": 287}
+{"sentence": "The table was wiped by John clean.", "label": 0, "idx": 624}
+{"sentence": "The children admire their mother.", "label": 1, "idx": 381}
+{"sentence": "What the water did to the whole bottle was fill it.", "label": 0, "idx": 33}
+{"sentence": "Susan whispered at Rachel.", "label": 1, "idx": 194}
+{"sentence": "Tom said he would and Bill actually did eat a raw eggplant.", "label": 1, "idx": 400}
+{"sentence": "She asked was Alison coming to the party.", "label": 1, "idx": 407}
+{"sentence": "All who lost money in the scam are eligible for the program.", "label": 1, "idx": 732}
+{"sentence": "Harry told Sue that Albania is a lovely place for a vacation, and Tom told Sally that Albania is a lovely place for a vacation.", "label": 1, "idx": 653}
+{"sentence": "Some people consider noisy dogs in my neighborhood dangerous.", "label": 1, "idx": 798}
+{"sentence": "Vote for yourself!", "label": 1, "idx": 756}
+{"sentence": "She doesn't meet anyone for dinner, but they can't figure out who.", "label": 0, "idx": 551}
+{"sentence": "The boat seen down the river sank.", "label": 1, "idx": 901}
+{"sentence": "The person confessed responsible.", "label": 0, "idx": 868}
+{"sentence": "I want her to dance.", "label": 1, "idx": 378}
+{"sentence": "Sally is tall, and may be blond, and Sheila is short, and definitely is, blond.", "label": 1, "idx": 109}
+{"sentence": "John taught English Syntax to new students.", "label": 1, "idx": 250}
+{"sentence": "Which girl did Mike quip never wore this hat?", "label": 0, "idx": 95}
+{"sentence": "Ourselves like ourselves.", "label": 0, "idx": 741}
+{"sentence": "I drank some of water.", "label": 0, "idx": 265}
+{"sentence": "The monkeys proud of their leader.", "label": 0, "idx": 229}
+{"sentence": "John thinks that Mary loves himself.", "label": 0, "idx": 384}
+{"sentence": "Each author whose contribution is written in any language other than English will provide a summary in English.", "label": 1, "idx": 323}
+{"sentence": "He was arrested by the police.", "label": 1, "idx": 924}
+{"sentence": "Bill didn't allege that Roger had eaten anything.", "label": 1, "idx": 119}
+{"sentence": "John was struck as sick.", "label": 0, "idx": 974}
+{"sentence": "Dumb ideas are put in children's heads by TV.", "label": 1, "idx": 917}
+{"sentence": "Did Athena help us?", "label": 1, "idx": 485}
+{"sentence": "Anson demonized David every day", "label": 1, "idx": 487}
+{"sentence": "The jeweller scribbled the contract with his name.", "label": 0, "idx": 189}
+{"sentence": "Neither von Karajan's recording of Beethoven's 6th on Columbia nor Klemperer's has the right tempo.", "label": 1, "idx": 677}
+{"sentence": "Many people were fond of Pat.", "label": 1, "idx": 935}
+{"sentence": "We gave ourselves presents.", "label": 1, "idx": 744}
+{"sentence": "How fierce the battle?", "label": 0, "idx": 510}
+{"sentence": "This is the book which Bob reviewed, and this is the one which Fred won't do it.", "label": 0, "idx": 58}
+{"sentence": "Brian threw the fence with the stick.", "label": 0, "idx": 151}
+{"sentence": "Dana walking and Leslie ran.", "label": 0, "idx": 889}
+{"sentence": "John bought a dog for himself to play with.", "label": 0, "idx": 1040}
+{"sentence": "The administration has issued a statement that it is willing to meet a student group, but I'm not sure which one.", "label": 1, "idx": 603}
+{"sentence": "I am counting on Bill to incriminate himself.", "label": 1, "idx": 984}
+{"sentence": "Millie will send the President an obscene telegram, and Paul, the Secretary a rude letter.", "label": 0, "idx": 659}
+{"sentence": "No one can forgive that comment to you.", "label": 0, "idx": 132}
+{"sentence": "It did not rain.", "label": 1, "idx": 284}
+{"sentence": "Some people yell at dogs.", "label": 1, "idx": 795}
+{"sentence": "The book was written.", "label": 1, "idx": 621}
+{"sentence": "It was believed to be illegal by them to do that.", "label": 0, "idx": 1022}
+{"sentence": "I'll work on it if I can.", "label": 1, "idx": 104}
+{"sentence": "Who does John visit Sally because he likes?", "label": 0, "idx": 16}
+{"sentence": "We want John to win.", "label": 1, "idx": 27}
+{"sentence": "We gave us presents.", "label": 0, "idx": 743}
+{"sentence": "I'll work on it if Sam will be working on it.", "label": 1, "idx": 103}
+{"sentence": "The government's imposition of a fine.", "label": 1, "idx": 484}
+{"sentence": "I found the place where we can relax.", "label": 1, "idx": 306}
+{"sentence": "It was the policeman met that several young students in the park last night.", "label": 0, "idx": 226}
+{"sentence": "A large dog chased a small cat.", "label": 1, "idx": 790}
+{"sentence": "I want goes to the store.", "label": 0, "idx": 693}
+{"sentence": "The child put the toy on the table.", "label": 1, "idx": 830}
+{"sentence": "List associates of each defendant who speaks Spanish.", "label": 1, "idx": 782}
+{"sentence": "The car was driven.", "label": 1, "idx": 295}
+{"sentence": "Every student, and he wears socks, is a swinger.", "label": 0, "idx": 117}
+{"sentence": "John is sad.", "label": 1, "idx": 960}
+{"sentence": "Do you believe the claim that somebody was looking for something?", "label": 1, "idx": 98}
+{"sentence": "The stream twists through the valley.", "label": 1, "idx": 211}
+{"sentence": "There is a programme about Euripides on a Radio 4 tonight?", "label": 1, "idx": 488}
+{"sentence": "Have you seen my model airplane collection?", "label": 1, "idx": 373}
+{"sentence": "This girl in the red coat will put a picture of Bill in the mailbox and on your desk before tomorrow.", "label": 1, "idx": 435}
+{"sentence": "Kick you!", "label": 0, "idx": 480}
+{"sentence": "I kicked myself", "label": 1, "idx": 523}
+{"sentence": "It is some disgruntled old pigs in those ditches that humans love to eat.", "label": 1, "idx": 512}
+{"sentence": "The boy in the doorway waved to his father.", "label": 1, "idx": 267}
+{"sentence": "Some people consider the dogs dangerous.", "label": 1, "idx": 799}
+{"sentence": "We offered a job to her.", "label": 1, "idx": 174}
+{"sentence": "Each of the boys fought with some of the other boys.", "label": 1, "idx": 456}
+{"sentence": "John whispered Mary left.", "label": 0, "idx": 451}
+{"sentence": "The horse raced past the barn fell.", "label": 1, "idx": 899}
+{"sentence": "Chris dreads the bucket.", "label": 1, "idx": 955}
+{"sentence": "Any tiger has orange fur, marked with black stripes.", "label": 1, "idx": 391}
+{"sentence": "Some my jobs are in jeopardy.", "label": 0, "idx": 225}
+{"sentence": "The worker will have a job.", "label": 1, "idx": 131}
+{"sentence": "Anson demonized", "label": 0, "idx": 475}
+{"sentence": "It is nice to go abroad.", "label": 1, "idx": 46}
+{"sentence": "Where did you go and who ate what?", "label": 1, "idx": 85}
+{"sentence": "We need another run to win.", "label": 1, "idx": 768}
+{"sentence": "Mary has always preferred lemons to limes.", "label": 1, "idx": 69}
