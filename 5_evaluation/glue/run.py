@@ -89,7 +89,7 @@ class ModelForSequenceClassification(nn.Module):
         )
 
     def forward(self, input_data: torch.LongTensor, attention_mask: torch.BoolTensor) -> torch.Tensor:
-        head_embedding = self.transformer.get_contextualized(input_data.t(), attention_mask)[0]
+        head_embedding = self.transformer.get_contextualized(input_data.t(), attention_mask.unsqueeze(1))[0]
         logits = self.classifier(head_embedding)
 
         return logits
@@ -114,12 +114,12 @@ if __name__ == "__main__":
     tokenizer.enable_padding(pad_id=3, pad_token="␢")
     tokenizer.enable_truncation(args.sequence_length)
 
-    train_dataset: Dataset = Dataset(args.train_data)
+    train_dataset: Dataset = Dataset(args.train_data, args.task)
     train_dataloader: DataLoader = DataLoader(train_dataset, batch_size=args.batch_size, collate_fn=partial(collate_function, tokenizer), shuffle=True, drop_last=True)
 
     valid_dataloader: DataLoader | None = None
     if args.valid_data is not None:
-        valid_dataset: Dataset = Dataset(args.valid_data)
+        valid_dataset: Dataset = Dataset(args.valid_data, args.task)
         valid_dataloader = DataLoader(valid_dataset, batch_size=args.batch_size, collate_fn=partial(collate_function, tokenizer))
 
     args = load_config(args)
@@ -133,7 +133,7 @@ if __name__ == "__main__":
     if valid_dataloader is not None:
         metrics = evaluate(model, valid_dataloader, args.metrics, device, args.verbose)
         with (args.results_dir / f"results_{args.model_path_or_name.stem}_{args.task}.txt").open("w") as file:
-            file.write("\n".join([f"{key}: {value}" for key, value in metrics.item()]))
+            file.write("\n".join([f"{key}: {value}" for key, value in metrics.items()]))
 
 
 # model = pathlib.Path(...)
