@@ -35,7 +35,7 @@ def train(model: nn.Module, train_dataloader: DataLoader, args: Namespace, optim
                 save_model(model, args)
 
 
-def train_epoch(model: nn.Module, train_dataloader: DataLoader, args: Namespace, epoch: int, global_step: int, total_steps: int, optimizer: Optimizer, scheduler: LRScheduler, device: str, verbose: bool = False) -> int:
+def train_epoch(model: nn.Module, train_dataloader: DataLoader, args: Namespace, epoch: int, global_step: int, total_steps: int, optimizer: Optimizer, scheduler: LRScheduler | None, device: str, verbose: bool = False) -> int:
     model.train()
 
     progress_bar = tqdm(initial=global_step, total=total_steps)
@@ -52,7 +52,8 @@ def train_epoch(model: nn.Module, train_dataloader: DataLoader, args: Namespace,
         loss.backward()
 
         optimizer.step()
-        scheduler.step()
+        if scheduler is not None:
+            scheduler.step()
 
         metrics = calculate_metrics(logits, labels, args.metrics)
 
