@@ -80,7 +80,7 @@ if __name__ == "__main__":
     args = load_config(args)
 
     seed_everything(args.seed)
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cuda" if torch.cuda.is_available() else "mps"
 
     tokenizer: Tokenizer = Tokenizer.from_file(args.tokenizer_path)
     tokenizer.enable_padding(pad_id=3, pad_token="␢")
@@ -94,12 +94,15 @@ if __name__ == "__main__":
         valid_dataset: Dataset = Dataset(args.valid_data, args.task)
         valid_dataloader = DataLoader(valid_dataset, batch_size=args.valid_batch_size, collate_fn=partial(collate_function, tokenizer))
 
-    model: nn.Modulde = ModelForSequenceClassification(args)
-    model.transformer.load_state_dict(torch.load(args.model_path_or_name, map_location="cpu"))
+    model: nn.Modulde = ModelForSequenceClassification(args).to(device)
+    model.transformer.load_state_dict(torch.load(args.model_path_or_name, map_location="cpu", weights_only=True))
     optimizer: torch.optim.Optimizer = AdamW(model.parameters(), lr=args.learning_rate, betas=(args.beta1, args.beta2), eps=args.optimizer_eps, weight_decay=args.weight_decay, amsgrad=args.amsgrad)
     total_steps: int = args.num_epochs * len(train_dataloader)
     scheduler: torch.optim.lr_scheduler.LRScheduler = cosine_schedule_with_warmup(optimizer, int(args.warmup_proportion * total_steps), total_steps, 0.1)
-    train(model, train_dataloader, args, optimizer, scheduler, device, valid_dataloader, args.verbose)
+    best_model = train(model, train_dataloader, args, optimizer, scheduler, device, valid_dataloader, args.verbose)
+
+    if best_model is not None:
+        model.load_state_dict(best_model.state_dict())
 
     if valid_dataloader is not None:
         metrics = evaluate(model, valid_dataloader, args.metrics, device, args.verbose)

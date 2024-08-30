@@ -5,6 +5,7 @@ from torch.nn import functional as F
 from tqdm import tqdm
 from typing import TYPE_CHECKING
 from sklearn.metrics import accuracy_score, f1_score, matthews_corrcoef
+import copy
 
 if TYPE_CHECKING:
     from argparse import Namespace
@@ -14,10 +15,12 @@ if TYPE_CHECKING:
     from torch.optim.lr_scheduler import LRScheduler
 
 
-def train(model: nn.Module, train_dataloader: DataLoader, args: Namespace, optimizer: Optimizer, scheduler: LRScheduler, device: str, valid_dataloader: DataLoader = None, verbose: bool = False) -> None:
-    total_steps = args.num_epochs * len(train_dataloader)
-    step = 0
-    best_score = None
+def train(model: nn.Module, train_dataloader: DataLoader, args: Namespace, optimizer: Optimizer, scheduler: LRScheduler, device: str, valid_dataloader: DataLoader = None, verbose: bool = False) -> nn.Module:
+    total_steps: int = args.num_epochs * len(train_dataloader)
+    step: int = 0
+    best_score: float | None = None
+    best_model: nn.Module | None = None
+    update_best: bool = False
 
     for epoch in range(args.num_epochs):
         step = train_epoch(model, train_dataloader, args, epoch, step, total_steps, optimizer, scheduler, device, verbose)
@@ -25,14 +28,20 @@ def train(model: nn.Module, train_dataloader: DataLoader, args: Namespace, optim
         if valid_dataloader is not None:
             metrics = evaluate(model, valid_dataloader, args.metrics, device, verbose)
             if args.keep_best_model:
-                score = metrics[args.metric_for_valid]
+                score: float = metrics[args.metric_for_valid]
+                if compare_scores(best_score, score, args.higher_is_better):
+                    best_model = copy.deepcopy(model)
+                    best_score = score
+                    update_best = True
 
         if args.save:
-            if args.keep_best_model and compare_scores(best_score, score, args.higher_is_better):
+            if args.keep_best_model and update_best:
+                save_model(best_model, args)
+                update_best = False
+            else:
                 save_model(model, args)
-                best_score = score
-            elif not args.keep_best_model:
-                save_model(model, args)
+
+    return best_model
 
 
 def train_epoch(model: nn.Module, train_dataloader: DataLoader, args: Namespace, epoch: int, global_step: int, total_steps: int, optimizer: Optimizer, scheduler: LRScheduler | None, device: str, verbose: bool = False) -> int:
@@ -41,9 +50,9 @@ def train_epoch(model: nn.Module, train_dataloader: DataLoader, args: Namespace,
     progress_bar = tqdm(initial=global_step, total=total_steps)
 
     for input_data, attention_mask, labels in train_dataloader:
-        input_data = input_data.to(device)
-        attention_mask = attention_mask.to(device)
-        labels = labels.to(device)
+        input_data = input_data.to(device=device)
+        attention_mask = attention_mask.to(device=device)
+        labels = labels.to(device=device)
 
         optimizer.zero_grad()
 
@@ -81,8 +90,9 @@ def evaluate(model: nn.Module, valid_dataloader: DataLoader, metrics_to_calculat
     logits = []
 
     for input_data, attention_mask, label in valid_dataloader:
-        input_data = input_data.to(device)
-        attention_mask = attention_mask.to(device)
+        input_data = input_data.to(device=device)
+        attention_mask = attention_mask.to(device=device)
+        label = label.to(device=device)
 
         logit = model(input_data, attention_mask)
 
@@ -127,8 +137,8 @@ def compare_scores(best: float, current: float, bigger_better: bool) -> bool:
 
 
 def calculate_metrics(logits: torch.Tensor, labels: torch.Tensor, metrics_to_calculate: list[str]) -> dict[str, float]:
-    predictions = logits.argmax(dim=-1).detach().numpy()
-    labels = labels.detach().numpy()
+    predictions = logits.argmax(dim=-1).detach().cpu().numpy()
+    labels = labels.detach().cpu().numpy()
     metrics = dict()
 
     for metric in metrics_to_calculate:
