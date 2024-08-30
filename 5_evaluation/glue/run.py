@@ -80,7 +80,7 @@ if __name__ == "__main__":
     args = load_config(args)
 
     seed_everything(args.seed)
-    device = "cuda" if torch.cuda.is_available() else "mps"
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
     tokenizer: Tokenizer = Tokenizer.from_file(args.tokenizer_path)
     tokenizer.enable_padding(pad_id=3, pad_token="␢")
