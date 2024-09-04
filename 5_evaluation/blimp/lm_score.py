@@ -10,12 +10,17 @@ def rank_mlm(sentences, model, tokenizer, device, batch_size, temperatures=None)
     sep_index = torch.tensor([tokenizer.token_to_id("␃")])
     pad_index = tokenizer.token_to_id("␢")
 
+    # mask_index = tokenizer.token_to_id("[MASK]")
+    # cls_index = torch.tensor([tokenizer.token_to_id("[CLS]")])
+    # sep_index = torch.tensor([tokenizer.token_to_id("[SEP]")])
+    # pad_index = tokenizer.token_to_id("[PAD]")
+
     # mask_index = tokenizer.mask_token_id
     # pad_index = tokenizer.pad_token_id
     # cls_index = torch.tensor([tokenizer.cls_token_id])
     # sep_index = torch.tensor([tokenizer.sep_token_id])
 
-    sentences = [torch.tensor(tokenizer.encode(s).ids) for s in sentences]
+    sentences = [torch.tensor(tokenizer.encode(s, add_special_tokens=False).ids) for s in sentences]
     # sentences = [tokenizer(s, add_special_tokens=False, return_tensors="pt").input_ids.squeeze(0) for s in sentences]
 
     if temperatures is None:
@@ -81,7 +86,7 @@ def rank_causal(sentences, model, tokenizer, device, batch_size, temperatures=No
     # pad_index = tokenizer.pad_token_id
     # cls_index = torch.tensor([tokenizer.cls_token_id])
 
-    sentences = [torch.tensor(tokenizer.encode(s).ids) for s in sentences]
+    sentences = [torch.tensor(tokenizer.encode(s, add_special_tokens=False).ids) for s in sentences]
     # sentences = [tokenizer(s, add_special_tokens=False, return_tensors="pt").input_ids.squeeze(0) for s in sentences]
 
     if temperatures is None:
@@ -138,7 +143,7 @@ def rank_mlm_shift(sentences, model, tokenizer, device, batch_size, temperatures
     # pad_index = tokenizer.pad_token_id
     # cls_index = torch.tensor([tokenizer.cls_token_id])
 
-    sentences = [torch.tensor(tokenizer.encode(s).ids) for s in sentences]
+    sentences = [torch.tensor(tokenizer.encode(s, add_special_tokens=False).ids) for s in sentences]
     # sentences = [tokenizer(s, add_special_tokens=False, return_tensors="pt").input_ids.squeeze(0) for s in sentences]
 
     if temperatures is None:
@@ -206,7 +211,7 @@ def rank_fused(sentences, model, tokenizer, device, batch_size, temperatures=Non
     # pad_index = tokenizer.pad_token_id
     # cls_index = torch.tensor([tokenizer.cls_token_id])
 
-    sentences = [torch.tensor(tokenizer.encode(s).ids) for s in sentences]
+    sentences = [torch.tensor(tokenizer.encode(s, add_special_tokens=False).ids) for s in sentences]
     # sentences = [tokenizer(s, add_special_tokens=False, return_tensors="pt").input_ids.squeeze(0) for s in sentences]
 
     if temperatures is None:
