@@ -6,6 +6,8 @@ from collections import Counter
 # import wandb
 import os
 from tqdm import tqdm
+import pathlib
+from collections import defaultdict
 
 from lm_score import rank_mlm, rank_causal, rank_mlm_shift, rank_fused
 from tokenizers import Tokenizer
@@ -15,15 +17,16 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
 
     # Required parameters
-    parser.add_argument("--input_path", default="data", type=str, help="Path to BLiMP.")
+    parser.add_argument("--input_path", default="data/blimp", type=pathlib.Path, help="Path to BLiMP.")
     # parser.add_argument("--name", default="blimp", type=str)
-    parser.add_argument("--output_dir", default="blimp_results", type=str, help="The output directory where the model checkpoints will be written.")
+    parser.add_argument("--output_dir", default="blimp_results", type=pathlib.Path, help="The output directory where the model checkpoints will be written.")
     parser.add_argument("--tokenizer_path", default="../../tokenizer_100M.json", type=str, help="The vocabulary the BERT model will train on.")
-    parser.add_argument("--model_path_or_name", default="../lambada/baseline/baseline.bin", type=str, help="Path to a previous checkpointed training state.")
-    parser.add_argument("--config_file", default="../../configs/base.json", type=str)
+    parser.add_argument("--model_path_or_name", default="../lambada/baseline/baseline.bin", type=pathlib.Path, help="Path to a previous checkpointed training state.")
+    parser.add_argument("--config_file", default="../../configs/base.json", type=pathlib.Path)
     parser.add_argument("--backend", default="mlm", type=str, help="The evaluation backend strategy, options: (mlm, causal, mlm_shift, fused)")
     parser.add_argument("--batch_size", default=64, type=int)
     parser.add_argument("--architecture", default="base", type=str, help="The architecture of the model, available: base, attglu, attgate, densemod, densesubmod, densecont, elc, qkln")
+    parser.add_argument("--predict", action=argparse.BooleanOptionalAction, default=False, help="Whether or not to save predictions.")
 
     args = parser.parse_args()
 
@@ -38,6 +41,30 @@ def load_config(args):
     return args
 
 
+def create_report(temperature, avg_accuracy, field_accuracy, linguistics_term_accuracy, uid_accuracy, file=None):
+    print(f"TEMPERATURE: {temperature:.2f}", file=file)
+    print(file=file)
+
+    print("### FIELD ACCURACY", file=file)
+    for key in field_accuracy.keys():
+        print(f"{key}: {field_accuracy[key]:.2f}", file=file)
+    print(file=file)
+
+    print("### LINGUISTIC TERM ACCURACY", file=file)
+    for key in linguistics_term_accuracy.keys():
+        print(f"{key}: {linguistics_term_accuracy[key]:.2f}", file=file)
+    print(file=file)
+
+    print("### UID ACCURACY", file=file)
+    for key in uid_accuracy.keys():
+        print(f"{key}: {uid_accuracy[key]:.2f}", file=file)
+    print(file=file)
+
+    print("### AVERAGE ACCURACY", file=file)
+    print(f"{avg_accuracy:.2f}", file=file)
+    print(file=file)
+
+
 @torch.no_grad()
 def evaluate(model, tokenizer, device, args):
     temperatures = torch.arange(0.0, 3.05, 0.05, device=device).clamp(min=1e-6)
@@ -46,10 +73,16 @@ def evaluate(model, tokenizer, device, args):
     uid_count = {"correct": [Counter() for _ in range(temperatures.size(0))], "total": [Counter() for _ in range(temperatures.size(0))]}
     linguistics_term_count = {"correct": [Counter() for _ in range(temperatures.size(0))], "total": [Counter() for _ in range(temperatures.size(0))]}
 
+    if args.predict:
+        all_predictions = [defaultdict(list) for _ in range(len(temperatures))]
+
     # iterate through all .jsonl files in ./data/ directory
     for filename in os.listdir(args.input_path):
         if not filename.endswith(".jsonl"):
             continue
+
+        if args.predict:
+            counter = 0
 
         # open file
         with open(os.path.join(args.input_path, filename), "r") as file:
@@ -98,8 +131,20 @@ def evaluate(model, tokenizer, device, args):
                     field_count["total"][i][pair["field"]] += 1
                     uid_count["total"][i][pair["UID"]] += 1
                     linguistics_term_count["total"][i][pair["linguistics_term"]] += 1
+                    if args.predict:
+                        all_predictions[i][pair["UID"]].append({"id": f"{pair['UID']}_{counter}", "pred": " " + (pair["good"] if ranking[0] == 0 else pair["bad"])})
+                        counter += 1
 
             print(f'Accuracy of {pair["UID"]} at temperature 1 is: {uid_count["correct"][20][pair["UID"]] / uid_count["total"][20][pair["UID"]] * 100:.2f}')
+
+    if args.predict:
+        final_predictions = []
+        for i in range(len(temperatures)):
+            temp_pred = dict()
+            for k, v in all_predictions[i].items():
+                temp_pred[k] = dict()
+                temp_pred[k]["predictions"] = v
+            final_predictions.append(temp_pred)
 
     # compute accuracy
 
@@ -115,73 +160,21 @@ def evaluate(model, tokenizer, device, args):
 
     average_accuracies = torch.tensor(average_accuracies)
     max_temp = torch.argmax(average_accuracies)
-    print(f"BEST TEMPERATURE: {max_temp * 0.05}")
-    print()
+    max_temperature = max_temp * 0.05
 
-    # print
-    print("### FIELD ACCURACY")
-    for key in field_accuracy[max_temp].keys():
-        print(f"{key}: {field_accuracy[max_temp][key]:.2f}")
-    print()
+    create_report(max_temperature, average_accuracies[max_temp], field_accuracy[max_temp], linguistics_term_accuracy[max_temp], uid_accuracy[max_temp])
 
-    print("### LINGUISTIC TERM ACCURACY")
-    for key in linguistics_term_accuracy[max_temp].keys():
-        print(f"{key}: {linguistics_term_accuracy[max_temp][key]:.2f}")
-    print()
+    with (args.output_path / "best_temperature_report.txt").open("w") as f:
+        create_report(max_temperature, average_accuracies[max_temp], field_accuracy[max_temp], linguistics_term_accuracy[max_temp], uid_accuracy[max_temp], file=f)
 
-    print("### UID ACCURACY")
-    for key in uid_accuracy[max_temp].keys():
-        print(f"{key}: {uid_accuracy[max_temp][key]:.2f}")
-    print()
+    with (args.output_path / "temperature_1_report.txt").open("w") as f:
+        create_report(1, average_accuracies[20], field_accuracy[20], linguistics_term_accuracy[20], uid_accuracy[20], file=f)
 
-    print("### AVERAGE ACCURACY")
-    print(f"{average_accuracies[max_temp]:.2f}")
-    print()
-
-    # save report
-    with open(f"{args.output_dir}/report_{args.model_path_or_name.split('/')[-1][:-4]}_{args.backend}.txt", "w") as file:
-        file.write("### BEST TEMPERATURE\n")
-        file.write(f"{max_temp * 0.05:.2f}\n")
-
-        file.write("### FIELD ACCURACY\n")
-        for key in field_accuracy[max_temp].keys():
-            file.write(f"{key}: {field_accuracy[max_temp][key]:.2f}\n")
-        file.write("\n")
-
-        file.write("### LINGUISTIC TERM ACCURACY\n")
-        for key in linguistics_term_accuracy[max_temp].keys():
-            file.write(f"{key}: {linguistics_term_accuracy[max_temp][key]:.2f}\n")
-        file.write("\n")
-
-        file.write("### UID ACCURACY\n")
-        for key in uid_accuracy[max_temp].keys():
-            file.write(f"{key}: {uid_accuracy[max_temp][key]:.2f}\n")
-        file.write("\n")
-
-        file.write("### AVERAGE ACCURACY\n")
-        file.write(f"{average_accuracies[max_temp]:.2f}\n")
-        file.write("\n")
-
-        file.write("###TEMPERATURE 1\n")
-
-        file.write("### FIELD ACCURACY\n")
-        for key in field_accuracy[20].keys():
-            file.write(f"{key}: {field_accuracy[20][key]:.2f}\n")
-        file.write("\n")
-
-        file.write("### LINGUISTIC TERM ACCURACY\n")
-        for key in linguistics_term_accuracy[20].keys():
-            file.write(f"{key}: {linguistics_term_accuracy[20][key]:.2f}\n")
-        file.write("\n")
-
-        file.write("### UID ACCURACY\n")
-        for key in uid_accuracy[20].keys():
-            file.write(f"{key}: {uid_accuracy[20][key]:.2f}\n")
-        file.write("\n")
-
-        file.write("### AVERAGE ACCURACY\n")
-        file.write(f"{average_accuracies[20]:.2f}\n")
-        file.write("\n")
+    if args.predict:
+        with (args.output_path / "predictions_at_temperature_1.json").open("w") as f:
+            json.dump(final_predictions[20], f)
+        with (args.output_path / "predictions_at_best_temperature.json").open("w") as f:
+            json.dump(final_predictions[max_temp], f)
 
 
 if __name__ == "__main__":
@@ -205,8 +198,20 @@ if __name__ == "__main__":
             from model_elc import BertPred
         case "qkln":
             from model_qk_layernorm import BertPred
+        case "dual":
+            from model_dual import BertPred
         case _:
             raise ValueError(f"The architecture cannot be {args.architecture}, it has to be one of the following: base, attglu, attgate, densemod, densesubmod, densecont, elc, qkln.")
+
+    task = args.input_path.stem
+    args.model_name = args.model_path_or_name.stem
+    if not os.path.exists(args.output_dir):
+        os.mkdir(args.output_dir)
+    if not os.path.exists(args.output_dir / args.model_name):
+        os.mkdir(args.output_dir / args.model_name)
+    if not os.path.exists(args.output_dir / args.model_name / task):
+        os.mkdir(args.output_dir / args.model_name / task)
+    args.output_path = args.output_dir / args.model_name / task
 
     tokenizer = Tokenizer.from_file(args.tokenizer_path)
     # tokenizer = AutoTokenizer.from_pretrained(args.model_path_or_name, trust_remote_code=True)
