@@ -9,9 +9,10 @@ from torch.optim import AdamW
 from utils import seed_everything, cosine_schedule_with_warmup
 from functools import partial
 import json
+import os
 import pathlib
 
-from evaluator import train, evaluate
+from evaluator import train, predict_classification
 from dataset import Dataset, collate_function
 from classifier import ModelForSequenceClassification
 
@@ -93,21 +94,37 @@ if __name__ == "__main__":
     if args.valid_data is not None:
         valid_dataset: Dataset = Dataset(args.valid_data, args.task)
         valid_dataloader = DataLoader(valid_dataset, batch_size=args.valid_batch_size, collate_fn=partial(collate_function, tokenizer))
+        model_name = args.model_path_or_name.stem
+        if args.task == "mnli":
+            args.task = args.valid_data.stem.split(".")[0]
+        output_path = args.results_dir / model_name / args.task
+
+        if not os.path.exists(args.results_dir):
+            os.mkdir(args.results_dir)
+        if not os.path.exists(args.results_dir / model_name):
+            os.mkdir(args.results_dir / model_name)
+        if not os.path.exists(output_path):
+            os.mkdir(output_path)
 
     model: nn.Modulde = ModelForSequenceClassification(args).to(device)
     model.transformer.load_state_dict(torch.load(args.model_path_or_name, map_location="cpu", weights_only=True))
     optimizer: torch.optim.Optimizer = AdamW(model.parameters(), lr=args.learning_rate, betas=(args.beta1, args.beta2), eps=args.optimizer_eps, weight_decay=args.weight_decay, amsgrad=args.amsgrad)
     total_steps: int = args.num_epochs * len(train_dataloader)
     scheduler: torch.optim.lr_scheduler.LRScheduler = cosine_schedule_with_warmup(optimizer, int(args.warmup_proportion * total_steps), total_steps, 0.1)
-    best_model = train(model, train_dataloader, args, optimizer, scheduler, device, valid_dataloader, args.verbose)
+    best_model: nn.Module = train(model, train_dataloader, args, optimizer, scheduler, device, valid_dataloader, args.verbose)
 
     if best_model is not None:
         model.load_state_dict(best_model.state_dict())
 
     if valid_dataloader is not None:
-        metrics = evaluate(model, valid_dataloader, args.metrics, device, args.verbose)
-        with (args.results_dir / f"results_{args.model_path_or_name.stem}_{args.task}.txt").open("w") as file:
+        metrics, preds = predict_classification(model, valid_dataloader, args.metrics, device, args.verbose)
+        pred_dict = {f"{args.task}": {"prediction": []}}
+        for i, pred in enumerate(preds):
+            pred_dict[f"{args.task}"]["prediction"].append({"id": f"{args.task}_{i}", "pred": int(pred)})
+        with (output_path / "results.txt").open("w") as file:
             file.write("\n".join([f"{key}: {value}" for key, value in metrics.items()]))
+        with (output_path / "predictions.json").open("w") as file:
+            json.dump(pred_dict, file)
 
 
 # model = pathlib.Path(...)

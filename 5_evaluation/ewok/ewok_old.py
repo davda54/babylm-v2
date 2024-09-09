@@ -6,10 +6,8 @@ from collections import Counter
 # import wandb
 import os
 from tqdm import tqdm
-import pathlib
-from collections import defaultdict
 
-from lm_score import rank_mlm, rank_causal, rank_mlm_shift, rank_fused
+from lm_score_old import rank_mlm, rank_causal, rank_mlm_shift, rank_fused
 from tokenizers import Tokenizer
 
 
@@ -17,15 +15,15 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
 
     # Required parameters
-    parser.add_argument("--input_path", default="data/ewok_filtered", type=pathlib.Path, help="Path to BLiMP.")
-    parser.add_argument("--output_dir", default="ewok_results", type=pathlib.Path, help="The output directory where the model checkpoints will be written.")
+    parser.add_argument("--input_path", default="data", type=str, help="Path to BLiMP.")
+    # parser.add_argument("--name", default="blimp", type=str)
+    parser.add_argument("--output_dir", default="ewok_results", type=str, help="The output directory where the model checkpoints will be written.")
     parser.add_argument("--tokenizer_path", default="../../tokenizer_100M.json", type=str, help="The vocabulary the BERT model will train on.")
-    parser.add_argument("--model_path_or_name", default="../lambada/baseline/baseline.bin", type=pathlib.Path, help="Path to a previous checkpointed training state.")
-    parser.add_argument("--config_file", default="../../configs/base.json", type=pathlib.Path)
+    parser.add_argument("--model_path_or_name", default="../lambada/baseline/baseline.bin", type=str, help="Path to a previous checkpointed training state.")
+    parser.add_argument("--config_file", default="../../configs/base.json", type=str)
     parser.add_argument("--backend", default="mlm", type=str, help="The evaluation backend strategy, options: (mlm, causal, mlm_shift, fused)")
     parser.add_argument("--batch_size", default=64, type=int)
     parser.add_argument("--architecture", default="base", type=str, help="The architecture of the model, available: base, attglu, attgate, densemod, densesubmod, densecont, elc, qkln")
-    parser.add_argument("--predict", action=argparse.BooleanOptionalAction, default=False, help="Whether or not to save predictions.")
 
     args = parser.parse_args()
 
@@ -40,35 +38,6 @@ def load_config(args):
     return args
 
 
-def create_report(temperature, avg_accuracy, field_accuracy, context_type_accuracy, context_contrast_accuracy, target_contrast_accuracy, file=None):
-    print(f"TEMPERATURE: {temperature:.2f}", file=file)
-    print(file=file)
-
-    print("### DOMAIN ACCURACY", file=file)
-    for key in field_accuracy.keys():
-        print(f"{key}: {field_accuracy[key]:.2f}", file=file)
-    print(file=file)
-
-    print("### CONTEXT TYPE ACCURACY", file=file)
-    for key in context_type_accuracy.keys():
-        print(f"{key}: {context_type_accuracy[key]:.2f}", file=file)
-    print(file=file)
-
-    print("### CONTEXT CONTRAST ACCURACY", file=file)
-    for key in context_contrast_accuracy.keys():
-        print(f"{key}: {context_contrast_accuracy[key]:.2f}", file=file)
-    print(file=file)
-
-    print("### TARGET CONTRAST ACCURACY", file=file)
-    for key in target_contrast_accuracy.keys():
-        print(f"{key}: {target_contrast_accuracy[key]:.2f}", file=file)
-    print(file=file)
-
-    print("### AVERAGE ACCURACY", file=file)
-    print(f"{avg_accuracy:.2f}", file=file)
-    print(file=file)
-
-
 @torch.no_grad()
 def evaluate(model, tokenizer, device, args):
     temperatures = torch.arange(0.0, 3.05, 0.05, device=device).clamp(min=1e-6)
@@ -78,16 +47,10 @@ def evaluate(model, tokenizer, device, args):
     context_contrast_count = {"correct": [Counter() for _ in range(temperatures.size(0))], "total": [Counter() for _ in range(temperatures.size(0))]}
     target_contrast_count = {"correct": [Counter() for _ in range(temperatures.size(0))], "total": [Counter() for _ in range(temperatures.size(0))]}
 
-    if args.predict:
-        all_predictions = [defaultdict(list) for _ in range(len(temperatures))]
-
     # iterate through all .jsonl files in ./data/ directory
     for filename in os.listdir(args.input_path):
         if not filename.endswith(".jsonl"):
             continue
-
-        if args.predict:
-            counter = 0
 
         # open file
         with open(os.path.join(args.input_path, filename), "r") as file:
@@ -121,33 +84,22 @@ def evaluate(model, tokenizer, device, args):
                     raise ValueError(f"Backend {args.backend} is not implemented!")
 
                 for i, ranking in enumerate(finegrained_ranking):
-                    if ranking[0] == 0:
-                        field_count["correct"][i][pair["domain"]] += 1
-                        context_type_count["correct"][i][pair["context_type"]] += 1
-                        context_contrast_count["correct"][i][pair["context_contrast"]] += 1
-                        target_contrast_count["correct"][i][pair["target_contrast"]] += 1
+                    if ranking.index(0) < ranking.index(1):
+                        field_count["correct"][i][pair["domain"]] += 0.5
+                        context_type_count["correct"][i][pair["context_type"]] += 0.5
+                        context_contrast_count["correct"][i][pair["context_contrast"]] += 0.5
+                        target_contrast_count["correct"][i][pair["target_contrast"]] += 0.5
+                    if ranking.index(3) < ranking.index(2):
+                        field_count["correct"][i][pair["domain"]] += 0.5
+                        context_type_count["correct"][i][pair["context_type"]] += 0.5
+                        context_contrast_count["correct"][i][pair["context_contrast"]] += 0.5
+                        target_contrast_count["correct"][i][pair["target_contrast"]] += 0.5
                     field_count["total"][i][pair["domain"]] += 1
                     context_type_count["total"][i][pair["context_type"]] += 1
                     context_contrast_count["total"][i][pair["context_contrast"]] += 1
                     target_contrast_count["total"][i][pair["target_contrast"]] += 1
-                    if args.predict:
-                        if ranking[0] == 0:
-                            all_predictions[i][pair["domain"]].append({"id": f"{pair['domain']}_{counter}", "pred": " " + pair["target1"]})
-                        else:
-                            all_predictions[i][pair["domain"]].append({"id": f"{pair['domain']}_{counter}", "pred": " " + pair["target2"]})
-                if args.predict:
-                    counter += 1
 
             # print(f'Accuracy of {pair["UID"]} at temperature 1 is: {uid_count["correct"][20][pair["UID"]] / uid_count["total"][20][pair["UID"]] * 100:.2f}')
-
-    if args.predict:
-        final_predictions = []
-        for i in range(len(temperatures)):
-            temp_pred = dict()
-            for k, v in all_predictions[i].items():
-                temp_pred[k] = dict()
-                temp_pred[k]["predictions"] = v
-            final_predictions.append(temp_pred)
 
     # compute accuracy
 
@@ -164,22 +116,88 @@ def evaluate(model, tokenizer, device, args):
 
     average_accuracies = torch.tensor(average_accuracies)
     max_temp = torch.argmax(average_accuracies)
+    print(f"BEST TEMPERATURE: {max_temp * 0.05}")
+    print()
 
-    max_temperature = max_temp * 0.05
+    # print
+    print("### DOMAIN ACCURACY")
+    for key in field_accuracy[max_temp].keys():
+        print(f"{key}: {field_accuracy[max_temp][key]:.2f}")
+    print()
 
-    create_report(max_temperature, average_accuracies[max_temp], field_accuracy[max_temp], context_type_accuracy[max_temp], context_contrast_accuracy[max_temp], target_contrast_accuracy[max_temp])
+    print("### CONTEXT TYPE ACCURACY")
+    for key in context_type_accuracy[max_temp].keys():
+        print(f"{key}: {context_type_accuracy[max_temp][key]:.2f}")
+    print()
 
-    with (args.output_path / "best_temperature_report.txt").open("w") as f:
-        create_report(max_temperature, average_accuracies[max_temp], field_accuracy[max_temp], context_type_accuracy[max_temp], context_contrast_accuracy[max_temp], target_contrast_accuracy[max_temp], file=f)
+    print("### CONTEXT CONTRAST ACCURACY")
+    for key in context_contrast_accuracy[max_temp].keys():
+        print(f"{key}: {context_contrast_accuracy[max_temp][key]:.2f}")
+    print()
 
-    with (args.output_path / "temperature_1_report.txt").open("w") as f:
-        create_report(1, average_accuracies[20], field_accuracy[20], context_type_accuracy[20], context_contrast_accuracy[20], target_contrast_accuracy[20], file=f)
+    print("### TARGET CONTRAST ACCURACY")
+    for key in target_contrast_accuracy[max_temp].keys():
+        print(f"{key}: {target_contrast_accuracy[max_temp][key]:.2f}")
+    print()
 
-    if args.predict:
-        with (args.output_path / "predictions_at_temperature_1.json").open("w") as f:
-            json.dump(final_predictions[20], f)
-        with (args.output_path / "predictions_at_best_temperature.json").open("w") as f:
-            json.dump(final_predictions[max_temp], f)
+    print("### AVERAGE ACCURACY")
+    print(f"{average_accuracies[max_temp]:.2f}")
+    print()
+
+    # save report
+    with open(f"{args.output_dir}/report_{args.model_path_or_name.split('/')[-1][:-4]}_{args.backend}.txt", "w") as file:
+        file.write("### BEST TEMPERATURE\n")
+        file.write(f"{max_temp * 0.05:.2f}\n")
+
+        file.write("### DOMAIN ACCURACY\n")
+        for key in field_accuracy[max_temp].keys():
+            file.write(f"{key}: {field_accuracy[max_temp][key]:.2f}\n")
+        file.write("\n")
+
+        file.write("### CONTEXT TYPE ACCURACY\n")
+        for key in context_type_accuracy[max_temp].keys():
+            file.write(f"{key}: {context_type_accuracy[max_temp][key]:.2f}\n")
+        file.write("\n")
+
+        file.write("### CONTEXT CONTRAST ACCURACY\n")
+        for key in context_contrast_accuracy[max_temp].keys():
+            file.write(f"{key}: {context_contrast_accuracy[max_temp][key]:.2f}\n")
+        file.write("\n")
+
+        file.write("### TARGET CONTRAST ACCURACY\n")
+        for key in target_contrast_accuracy[max_temp].keys():
+            file.write(f"{key}: {target_contrast_accuracy[max_temp][key]:.2f}\n")
+        file.write("\n")
+
+        file.write("### AVERAGE ACCURACY\n")
+        file.write(f"{average_accuracies[max_temp]:.2f}\n")
+        file.write("\n")
+
+        file.write("###TEMPERATURE 1\n")
+
+        file.write("### DOMAIN ACCURACY\n")
+        for key in field_accuracy[20].keys():
+            file.write(f"{key}: {field_accuracy[20][key]:.2f}\n")
+        file.write("\n")
+
+        file.write("### CONTEXT TYPE ACCURACY\n")
+        for key in context_type_accuracy[20].keys():
+            file.write(f"{key}: {context_type_accuracy[20][key]:.2f}\n")
+        file.write("\n")
+
+        file.write("### CONTEXT CONTRAST ACCURACY\n")
+        for key in context_contrast_accuracy[max_temp].keys():
+            file.write(f"{key}: {context_contrast_accuracy[max_temp][key]:.2f}\n")
+        file.write("\n")
+
+        file.write("### TARGET CONTRAST ACCURACY\n")
+        for key in target_contrast_accuracy[20].keys():
+            file.write(f"{key}: {target_contrast_accuracy[20][key]:.2f}\n")
+        file.write("\n")
+
+        file.write("### AVERAGE ACCURACY\n")
+        file.write(f"{average_accuracies[20]:.2f}\n")
+        file.write("\n")
 
 
 if __name__ == "__main__":
@@ -207,16 +225,6 @@ if __name__ == "__main__":
             from model_dual import BertPred
         case _:
             raise ValueError(f"The architecture cannot be {args.architecture}, it has to be one of the following: base, attglu, attgate, densemod, densesubmod, densecont, elc, qkln.")
-
-    task = args.input_path.stem
-    args.model_name = args.model_path_or_name.stem
-    if not os.path.exists(args.output_dir):
-        os.mkdir(args.output_dir)
-    if not os.path.exists(args.output_dir / args.model_name):
-        os.mkdir(args.output_dir / args.model_name)
-    if not os.path.exists(args.output_dir / args.model_name / task):
-        os.mkdir(args.output_dir / args.model_name / task)
-    args.output_path = args.output_dir / args.model_name / task
 
     tokenizer = Tokenizer.from_file(args.tokenizer_path)
     # tokenizer = AutoTokenizer.from_pretrained(args.model_path_or_name, trust_remote_code=True)

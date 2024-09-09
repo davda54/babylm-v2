@@ -20,20 +20,20 @@ def rank_mlm(sentences, model, tokenizer, device, batch_size, temperatures=None)
     # cls_index = torch.tensor([tokenizer.cls_token_id])
     # sep_index = torch.tensor([tokenizer.sep_token_id])
 
-    context_sentences = sentences[0]
-    target_sentences = sentences[1:]
+    context_sentences = sentences[:2]
+    target_sentences = sentences[2:]
 
-    sentences = [" ".join([context_sentences, ts]) for ts in target_sentences]
+    sentences = [" ".join([cs, ts]) for cs in context_sentences for ts in target_sentences]
 
     sentences = [torch.tensor(tokenizer.encode(s, add_special_tokens=False).ids) for s in sentences]
-    context_sentences = torch.tensor(tokenizer.encode(context_sentences, add_special_tokens=False).ids)
-    context_length = context_sentences.size(0)
+    context_sentences = [torch.tensor(tokenizer.encode(s, add_special_tokens=False).ids) for s in context_sentences]
+    context_length = [s.size(0) for s in context_sentences]
     # sentences = [tokenizer(s, add_special_tokens=False, return_tensors="pt").input_ids.squeeze(0) for s in sentences]
 
     if temperatures is None:
         temperatures = torch.ones(1, device=device)
 
-    labels = torch.cat([s[context_length:] for i, s in enumerate(sentences)]).unsqueeze(-1).expand(temperatures.size(0), -1, -1).to(device)
+    labels = torch.cat([s[context_length[i//2]:] for i, s in enumerate(sentences)]).unsqueeze(-1).expand(temperatures.size(0), -1, -1).to(device)
 
     def prepare(tokens, context_length, padding: int):
         tokens = torch.cat([cls_index, tokens, sep_index, torch.full((padding,), fill_value=pad_index)]).to(device)
@@ -45,12 +45,12 @@ def rank_mlm(sentences, model, tokenizer, device, batch_size, temperatures=None)
         return input_ids, attention_mask
 
     max_length = max(s.size(0)for s in sentences)
-    input_ids, attention_masks = zip(*[prepare(s, context_length, max_length - s.size(0)) for i, s in enumerate(sentences)])
+    input_ids, attention_masks = zip(*[prepare(s, context_length[i//2], max_length - s.size(0)) for i, s in enumerate(sentences)])
 
     input_ids = torch.cat(input_ids, dim=0)
     attention_mask = torch.cat(attention_masks, dim=0)
 
-    indices = [torch.arange(context_length + 1, 1 + len(s), device=device) for i, s in enumerate(sentences)]
+    indices = [torch.arange(context_length[i//2] + 1, 1 + len(s), device=device) for i, s in enumerate(sentences)]
     indices = torch.cat(indices, dim=0)
 
     total_score = []
@@ -76,7 +76,7 @@ def rank_mlm(sentences, model, tokenizer, device, batch_size, temperatures=None)
     log_ps, offset = [], 0
     for i in range(len(sentences)):
         from_index = offset
-        to_index = offset + (sentences[i].size(0) - context_length)
+        to_index = offset + (sentences[i].size(0) - context_length[i//2])
         log_ps.append(total_score[:, from_index:to_index].sum(-1))
         offset = to_index
 

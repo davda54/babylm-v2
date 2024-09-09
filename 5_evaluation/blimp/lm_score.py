@@ -5,15 +5,15 @@ import torch.nn.functional as F
 @torch.no_grad()
 def rank_mlm(sentences, model, tokenizer, device, batch_size, temperatures=None):
 
-    mask_index = tokenizer.token_to_id("␥")
-    cls_index = torch.tensor([tokenizer.token_to_id("␂")])
-    sep_index = torch.tensor([tokenizer.token_to_id("␃")])
-    pad_index = tokenizer.token_to_id("␢")
+    # mask_index = tokenizer.token_to_id("␥")
+    # cls_index = torch.tensor([tokenizer.token_to_id("␂")])
+    # sep_index = torch.tensor([tokenizer.token_to_id("␃")])
+    # pad_index = tokenizer.token_to_id("␢")
 
-    # mask_index = tokenizer.token_to_id("[MASK]")
-    # cls_index = torch.tensor([tokenizer.token_to_id("[CLS]")])
-    # sep_index = torch.tensor([tokenizer.token_to_id("[SEP]")])
-    # pad_index = tokenizer.token_to_id("[PAD]")
+    mask_index = tokenizer.token_to_id("[MASK]")
+    cls_index = torch.tensor([tokenizer.token_to_id("[CLS]")])
+    sep_index = torch.tensor([tokenizer.token_to_id("[SEP]")])
+    pad_index = tokenizer.token_to_id("[PAD]")
 
     # mask_index = tokenizer.mask_token_id
     # pad_index = tokenizer.pad_token_id

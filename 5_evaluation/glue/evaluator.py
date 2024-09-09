@@ -115,9 +115,40 @@ def evaluate(model: nn.Module, valid_dataloader: DataLoader, metrics_to_calculat
     return metrics
 
 
-# TODO
-def predict_classification(model: nn.Module, args: Namespace, pred_dataloader: DataLoader, verbose: bool = False) -> None:
-    pass
+@torch.no_grad
+def predict_classification(model: nn.Module, valid_dataloader: DataLoader, metrics_to_calculate: list[str], device: str, verbose: bool = False) -> tuple[str, torch.Tensor]:
+    model.eval()
+
+    progress_bar = tqdm(total=len(valid_dataloader))
+
+    labels = []
+    logits = []
+
+    for input_data, attention_mask, label in valid_dataloader:
+        input_data = input_data.to(device=device)
+        attention_mask = attention_mask.to(device=device)
+        label = label.to(device=device)
+
+        logit = model(input_data, attention_mask)
+
+        logits.append(logit)
+        labels.append(label)
+
+        progress_bar.update()
+
+    labels = torch.cat(labels, dim=0)
+    logits = torch.cat(logits, dim=0)
+    preds = logits.argmax(dim=-1)
+
+    metrics = calculate_metrics(logits, labels, metrics_to_calculate)
+
+    progress_bar.close()
+
+    if verbose:
+        metrics_string = "\n".join([f"{key}: {value}" for key, value in metrics.items()])
+        print(metrics_string)
+
+    return metrics, preds
 
 
 def save_model(model: torch.Tensor, args: Namespace) -> None:

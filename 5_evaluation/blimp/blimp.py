@@ -133,7 +133,9 @@ def evaluate(model, tokenizer, device, args):
                     linguistics_term_count["total"][i][pair["linguistics_term"]] += 1
                     if args.predict:
                         all_predictions[i][pair["UID"]].append({"id": f"{pair['UID']}_{counter}", "pred": " " + (pair["good"] if ranking[0] == 0 else pair["bad"])})
-                        counter += 1
+
+                if args.predict:
+                    counter += 1
 
             print(f'Accuracy of {pair["UID"]} at temperature 1 is: {uid_count["correct"][20][pair["UID"]] / uid_count["total"][20][pair["UID"]] * 100:.2f}')
 
