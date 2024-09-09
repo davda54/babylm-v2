@@ -10,6 +10,7 @@ from tokenizers import Tokenizer
 from statistics import mean
 import json
 import math
+import copy
 
 import torch
 import torch.nn as nn
@@ -39,11 +40,13 @@ def parse_arguments():
     parser.add_argument("--config_file", default="/pfs/lustrep1/scratch/project_465000144/dasamuel/babylm-v2/configs/base.json", type=str, help="The BERT model config")
     parser.add_argument("--tokenizer_path", default="/pfs/lustrep1/scratch/project_465000144/dasamuel/babylm-v2/tokenizer_100M.json", type=str, help="Path to the tokenizer.")
     parser.add_argument("--output_dir", default="/pfs/lustrep1/scratch/project_465000144/dasamuel/babylm-v2/checkpoints", type=str, help="The output directory where the model checkpoints will be written.")
+    parser.add_argument("--checkpoint_filename", default=None, type=str, help="The output directory where the model checkpoints will be written.")
     parser.add_argument("--optimizer", default="lamb", type=str)
     parser.add_argument("--hybrid_numerator", default=3, type=int)
     parser.add_argument("--hybrid_denominator", default=4, type=int)
-    parser.add_argument("--seq_length", default=128, help="Sequence length for training.")
-    parser.add_argument("--batch_size", default=128, type=int, help="Total batch size for training per GPUs and per grad accumulation step.")
+    parser.add_argument("--seq_length", default=128, help="Sequence length for training.", type=int)
+    parser.add_argument("--local_batch_size", default=128, type=int, help="Total batch size for training per GPUs and per grad accumulation step.")
+    parser.add_argument("--global_batch_size", default=32768, type=int, help="Total batch size for training per GPUs and per grad accumulation step.")
     parser.add_argument("--batch_reduction", default=4, type=int)
     parser.add_argument("--learning_rate", default=1e-2, type=float, help="The initial learning rate for Adam.")
     parser.add_argument("--max_steps", default=31_250 // 2, type=int, help="Total number of training steps to perform.")
@@ -66,6 +69,7 @@ def parse_arguments():
     parser.add_argument('--mixed_precision', default=True, action=argparse.BooleanOptionalAction)
     parser.add_argument('--n_special_tokens', default=16, type=int, help="Number of special tokens.")
     parser.add_argument('--z_loss_weight', default=1e-4, type=float, help="Weight for the z loss.")
+    parser.add_argument('--token_weighted_loss', default=True, action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
 
     args.output_path = f"{args.output_dir}/{args.name}.bin"
@@ -83,7 +87,10 @@ def setup_training(args, tokenizer):
     assert args.gpus_per_node == torch.cuda.device_count()
     print(f"Hello from rank {args.rank} of {args.world_size} on {gethostname()} where there are {args.gpus_per_node} allocated GPUs per node.", flush=True)
 
-    if args.rank / args.gpus_per_node < args.hybrid_numerator / args.hybrid_denominator:
+    assert args.world_size % args.hybrid_denominator == 0
+
+    # if args.rank / args.world_size < args.hybrid_numerator / args.hybrid_denominator:
+    if args.rank * args.hybrid_denominator < args.hybrid_numerator * args.world_size:
         args.dataset_type = "masked"
     else:
         args.dataset_type = "causal"
@@ -104,7 +111,7 @@ def setup_training(args, tokenizer):
 
     if is_main_process():
         print(f"Training for {args.max_steps:,} steps with {get_world_size()} GPUs")
-        print(f"In total, the model will be trained on 'steps'({args.max_steps:,}) x 'GPUs'({get_world_size()}) x 'batch_size'({args.batch_size:,}) x 'seq_len'({args.seq_length:,}) = {args.max_steps * get_world_size() * args.batch_size * args.seq_length:,} subword instances")
+        print(f"In total, the model will be trained on 'steps'({args.max_steps:,}) x 'GPUs'({get_world_size()}) x 'batch_size'({args.local_batch_size:,}) x 'seq_len'({args.seq_length:,}) = {args.max_steps * get_world_size() * args.local_batch_size * args.seq_length:,} subword instances")
 
     args.vocab_size = tokenizer.get_vocab_size()
 
@@ -186,7 +193,21 @@ def prepare_model_and_optimizer(args):
         static_graph=True
     )
 
-    return model, optimizer, scheduler
+    ema_model: nn.Module = copy.deepcopy(model.module)
+    for param in ema_model.parameters():
+        param.requires_grad = False
+
+    global_step, epoch = 0, 0
+    if args.checkpoint_filename is not None:
+        state_dict = torch.load(args.checkpoint_filename, map_location="cpu")
+        model.load_state_dict(state_dict["model"])
+        ema_model.load_state_dict(state_dict["ema_model"])
+        optimizer.load_state_dict(state_dict["optimizer"])
+        scheduler.load_state_dict(state_dict["scheduler"])
+        global_step = state_dict["global_step"]
+        epoch = state_dict["epoch"]
+
+    return model, ema_model, optimizer, scheduler, global_step, epoch
 
 
 def get_batch(dataloader, device, global_step):
@@ -199,7 +220,7 @@ def get_batch(dataloader, device, global_step):
     return input_ids, attention_mask, target_ids, mask_p
 
 
-def training_epoch(model, train_dataloader, valid_dataloader, optimizer, scheduler, global_step, epoch, args):
+def training_epoch(model, ema_model, train_dataloader, valid_dataloader, optimizer, scheduler, global_step, epoch, args):
     model = model.train()
     optimizer.zero_grad(set_to_none=True)
 
@@ -218,15 +239,26 @@ def training_epoch(model, train_dataloader, valid_dataloader, optimizer, schedul
 
         total_tokens = torch.tensor(num_tokens, device=args.device, dtype=torch.long)
         torch.distributed.all_reduce(total_tokens, torch.distributed.ReduceOp.SUM)
-        weight = args.world_size * num_tokens / total_tokens
+
+        if args.token_weighted_loss:
+            weight = args.world_size * num_tokens / total_tokens / args.accumulate_steps
+        else:
+            weight = 1.0 / args.accumulate_steps
 
         ((loss + args.z_loss_weight * z_loss) * weight).backward()
+
+        if (local_step + 1) % args.accumulate_steps != 0:
+            continue
+
         grad_norm = nn.utils.clip_grad_norm_(model.parameters(), args.max_gradient)
 
         optimizer.step()
         scheduler.step()
 
         with torch.no_grad():
+            for param_q, param_k in zip(model.module.parameters(), ema_model.parameters()):
+                param_k.data.mul_(args.ema_decay).add_((1.0 - args.ema_decay) * param_q.detach().data)
+
             if args.dataset_type == "masked":
                 mlm_loss = loss.detach() / (args.hybrid_numerator / args.hybrid_denominator)
                 clm_loss = torch.zeros_like(mlm_loss)
@@ -251,7 +283,9 @@ def training_epoch(model, train_dataloader, valid_dataloader, optimizer, schedul
                     "stats/learning_rate": optimizer.param_groups[0]['lr'],
                     "stats/grad_norm": grad_norm,
                     "stats/seq_length": args.seq_length,
-                    "stats/batch_size": args.current_batch_size,
+                    "stats/global_batch_size": args.current_global_batch_size,
+                    "stats/local_batch_size": args.current_local_batch_size,
+                    "stats/accumulate_steps": args.accumulate_steps,
                     "stats/mask_p": mask_p,
                 },
                 commit=False
@@ -284,7 +318,7 @@ def validation_epoch(model, valid_dataloader, epoch, args, commit=False):
 
     losses, accuracies = [], []
     valid_dataloader = iter(valid_dataloader)
-    input_ids, attention_mask, target_ids, mask_p = get_batch(valid_dataloader, args.device, 0)
+    input_ids, attention_mask, target_ids, _ = get_batch(valid_dataloader, args.device, 0)
     for local_step in tqdm(range(args.validation_steps), desc="Valid iteration", disable=not is_main_process()):
 
         with torch.cuda.amp.autocast(args.mixed_precision, dtype=torch.bfloat16):
@@ -292,7 +326,7 @@ def validation_epoch(model, valid_dataloader, epoch, args, commit=False):
                 loss, accuracy, _, num_tokens = model(input_ids, attention_mask, target_ids)
 
         if local_step < args.validation_steps - 1:
-            input_ids, attention_mask, target_ids, mask_p = get_batch(valid_dataloader, args.device, 0)
+            input_ids, attention_mask, target_ids, _ = get_batch(valid_dataloader, args.device, 0)
 
         total_tokens = torch.tensor(num_tokens, device=args.device, dtype=torch.long)
         torch.distributed.all_reduce(total_tokens, torch.distributed.ReduceOp.SUM)
@@ -317,10 +351,22 @@ def validation_epoch(model, valid_dataloader, epoch, args, commit=False):
         )
 
 
-def save(model, args):
+def save(model, ema_model, optimizer, scheduler, global_step, epoch, args):
     if is_main_process():
         model_to_save = model.module if hasattr(model, 'module') else model  # Only save the model itself
         torch.save(model_to_save.state_dict(), args.output_path)
+        torch.save(ema_model.state_dict(), args.output_path.replace(".bin", "_ema.bin"))
+        torch.save(
+            {
+                "model": model.state_dict(),
+                "ema_model": ema_model.state_dict(),
+                "optimizer": optimizer.state_dict(),
+                "scheduler": scheduler.state_dict(),
+                "global_step": global_step,
+                "epoch": epoch + 1,
+            },
+            args.output_path.replace(".bin", "_state_dict.bin")
+        )
 
 
 def load_datasets(args, tokenizer, epoch, global_step, train_dataloader, valid_dataloader):
@@ -328,15 +374,24 @@ def load_datasets(args, tokenizer, epoch, global_step, train_dataloader, valid_d
 
     if (global_step + 1) / args.max_steps >= 0.9:
         args.seq_length = 512
-        batch_size = args.batch_size // 4
+        global_batch_size = args.global_batch_size // 4
     elif (global_step + 1) / args.max_steps >= 0.7:
         args.seq_length = 256
-        batch_size = args.batch_size // 2
+        global_batch_size = args.global_batch_size // 2
     else:
         args.seq_length = 128
-        batch_size = args.batch_size
+        global_batch_size = args.global_batch_size
 
     if train_dataloader is None or train_dataloader.dataset.seq_length != args.seq_length:
+        if args.dataset_type == "masked":
+            rank = args.rank
+            world_size = args.world_size * args.hybrid_numerator // args.hybrid_denominator
+            train_data = MaskedDataset(args.train_path, tokenizer, args, rank, world_size)
+        else:
+            rank = args.rank - args.world_size * args.hybrid_numerator // args.hybrid_denominator
+            world_size = args.world_size * (args.hybrid_denominator - args.hybrid_numerator) // args.hybrid_denominator
+            train_data = CausalDataset(args.train_path, tokenizer, args, rank, world_size)
+    
         if args.dataset_type == "masked":
             train_data = MaskedDataset(args.train_path, tokenizer, args)
         else:
@@ -348,12 +403,15 @@ def load_datasets(args, tokenizer, epoch, global_step, train_dataloader, valid_d
         train_data = train_dataloader.dataset
 
     # linear batch size scaling
-    args.current_batch_size = int(batch_size / args.batch_reduction * (1 - global_step / args.max_steps) + batch_size * (global_step / args.max_steps) + 0.5)
+    args.current_global_batch_size = int(global_batch_size / args.batch_reduction * (1 - global_step / args.max_steps) + global_batch_size * (global_step / args.max_steps) + 0.5)
+    total_local_batch_size = int(args.current_global_batch_size / args.world_size + 0.5)
+    args.accumulate_steps = int(math.ceil(total_local_batch_size / args.local_batch_size))
+    args.current_local_batch_size = total_local_batch_size // args.accumulate_steps
 
     train_dataloader = DataLoader(
         train_data,
         shuffle=True,
-        batch_size=args.current_batch_size,
+        batch_size=args.current_local_batch_size,
         num_workers=0,  # non-zero num_workers causes segmenation fault
         generator=torch.Generator().manual_seed(train_seed),
         drop_last=True,
@@ -366,7 +424,7 @@ def load_datasets(args, tokenizer, epoch, global_step, train_dataloader, valid_d
         valid_dataloader = DataLoader(
             valid_data,
             shuffle=False,
-            batch_size=args.batch_size,
+            batch_size=args.local_batch_size,
             num_workers=0,  # non-zero num_workers causes segmenation fault
             generator=torch.Generator().manual_seed(42),
             drop_last=True,
@@ -411,7 +469,7 @@ if __name__ == "__main__":
 
     tokenizer = Tokenizer.from_file(args.tokenizer_path)
     setup_training(args, tokenizer)
-    model, optimizer, scheduler = prepare_model_and_optimizer(args)
+    model, ema_model, optimizer, scheduler, global_step, start_epoch = prepare_model_and_optimizer(args)
 
     average_time = measure_execution_time(model, args)
     if is_main_process():
@@ -419,12 +477,12 @@ if __name__ == "__main__":
         wandb.config.update({"average_execution_time": average_time})
 
     global_step, train_dataloader, valid_dataloader = 0, None, None
-    for epoch in count():
+    for epoch in count(start=start_epoch):
         train_dataloader, valid_dataloader = load_datasets(args, tokenizer, epoch, global_step, train_dataloader, valid_dataloader)
-        global_step = training_epoch(model, train_dataloader, valid_dataloader, optimizer, scheduler, global_step, epoch, args)
+        global_step = training_epoch(model, ema_model, train_dataloader, valid_dataloader, optimizer, scheduler, global_step, epoch, args)
 
         if global_step >= args.max_steps:
             break
 
-    save(model, args)
+    save(model, ema_model, optimizer, scheduler, global_step, epoch, args)
     validation_epoch(model, valid_dataloader, epoch, args, commit=True)

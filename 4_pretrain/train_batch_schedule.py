@@ -217,7 +217,7 @@ def training_epoch(model, ema_model, train_dataloader, valid_dataloader, optimiz
         
         input_ids, attention_mask, target_ids, mask_p = input_ids_, attention_mask_, target_ids_, mask_p_
         with torch.cuda.amp.autocast(args.mixed_precision, dtype=torch.bfloat16):
-            with ModelLogger(enable=(global_step * args.accumulate_steps) % 100 == 0, module=model):
+            with ModelLogger(enable=global_step % 100 == 0, module=model):
                 loss, accuracy, z_loss, num_tokens = model(input_ids, attention_mask, target_ids)
 
         if local_step < num_steps - 1: 
@@ -258,6 +258,7 @@ def training_epoch(model, ema_model, train_dataloader, valid_dataloader, optimiz
                     "stats/seq_length": args.seq_length,
                     "stats/global_batch_size": args.current_global_batch_size,
                     "stats/local_batch_size": args.current_local_batch_size,
+                    "stats/accumulate_steps": args.accumulate_steps,
                     "stats/mask_p": mask_p,
                 },
                 commit=False
@@ -443,5 +444,5 @@ if __name__ == "__main__":
         if global_step >= args.max_steps:
             break
 
-    save(model, ema_model, args)
+    save(model, model, ema_model, optimizer, scheduler, global_step, epoch, args)
     validation_epoch(model, valid_dataloader, epoch, args, commit=True)

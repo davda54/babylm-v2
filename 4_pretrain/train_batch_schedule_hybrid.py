@@ -347,11 +347,11 @@ def load_datasets(args, tokenizer, epoch, global_step, train_dataloader, valid_d
     if train_dataloader is None or train_dataloader.dataset.seq_length != args.seq_length:
         if args.dataset_type == "masked":
             rank = args.rank
-            world_size = args.world_size * hybrid_numerator // hybrid_denominator
+            world_size = args.world_size * args.hybrid_numerator // args.hybrid_denominator
             train_data = MaskedDataset(args.train_path, tokenizer, args, rank, world_size)
         else:
-            rank = args.rank - args.world_size * hybrid_numerator // hybrid_denominator
-            world_size = args.world_size * (hybrid_denominator - hybrid_numerator) // hybrid_denominator
+            rank = args.rank - args.world_size * args.hybrid_numerator // args.hybrid_denominator
+            world_size = args.world_size * (args.hybrid_denominator - args.hybrid_numerator) // args.hybrid_denominator
             train_data = CausalDataset(args.train_path, tokenizer, args, rank, world_size)
 
         if is_main_process():
