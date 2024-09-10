@@ -11,6 +11,7 @@ from functools import partial
 import json
 import os
 import pathlib
+import copy
 
 from evaluator import train, predict_classification
 from dataset import Dataset, collate_function
@@ -33,6 +34,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--task", default="mnli", type=str, help="The task to fine-tune for.")
 
     # Optinal Parameters
+    parser.add_argument("--ema_decay", default=0.999, type=float, help="The maximum learning rate during fine-tuning.")
     parser.add_argument("--verbose", action=argparse.BooleanOptionalAction, default=False, help="Whether to output the metrics in terminal during the run.")
     parser.add_argument("--valid_data", type=pathlib.Path, help="Path to file containing the validation dataset to test on, we expect it to be in a JSONL format.")
     parser.add_argument("--save", action=argparse.BooleanOptionalAction, default=False, help="Whether to save the fine-tuned model.")
@@ -106,18 +108,21 @@ if __name__ == "__main__":
         if not os.path.exists(output_path):
             os.mkdir(output_path)
 
-    model: nn.Modulde = ModelForSequenceClassification(args).to(device)
+    model: nn.Module = ModelForSequenceClassification(args).to(device)
     model.transformer.load_state_dict(torch.load(args.model_path_or_name, map_location="cpu", weights_only=True))
+    ema_model: nn.Module = copy.deepcopy(model)
+    for param in ema_model.parameters():
+        param.requires_grad = False
     optimizer: torch.optim.Optimizer = AdamW(model.parameters(), lr=args.learning_rate, betas=(args.beta1, args.beta2), eps=args.optimizer_eps, weight_decay=args.weight_decay, amsgrad=args.amsgrad)
     total_steps: int = args.num_epochs * len(train_dataloader)
     scheduler: torch.optim.lr_scheduler.LRScheduler = cosine_schedule_with_warmup(optimizer, int(args.warmup_proportion * total_steps), total_steps, 0.1)
-    best_model: nn.Module = train(model, train_dataloader, args, optimizer, scheduler, device, valid_dataloader, args.verbose)
+    best_model: nn.Module = train(model, ema_model, train_dataloader, args, optimizer, scheduler, device, valid_dataloader, args.verbose)
 
     if best_model is not None:
-        model.load_state_dict(best_model.state_dict())
+        ema_model.load_state_dict(best_model.state_dict())
 
     if valid_dataloader is not None:
-        metrics, preds = predict_classification(model, valid_dataloader, args.metrics, device, args.verbose)
+        metrics, preds = predict_classification(ema_model, valid_dataloader, args.metrics, device, args.verbose)
         pred_dict = {f"{args.task}": {"prediction": []}}
         for i, pred in enumerate(preds):
             pred_dict[f"{args.task}"]["prediction"].append({"id": f"{args.task}_{i}", "pred": int(pred)})
