@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from torch.optim.lr_scheduler import LRScheduler
 
 
-def train(model: nn.Module, train_dataloader: DataLoader, args: Namespace, optimizer: Optimizer, scheduler: LRScheduler, device: str, valid_dataloader: DataLoader = None, verbose: bool = False) -> nn.Module:
+def train(model: nn.Module, ema_model: nn.Module, train_dataloader: DataLoader, args: Namespace, optimizer: Optimizer, scheduler: LRScheduler, device: str, valid_dataloader: DataLoader = None, verbose: bool = False) -> nn.Module:
     total_steps: int = args.num_epochs * len(train_dataloader)
     step: int = 0
     best_score: float | None = None
@@ -63,6 +63,10 @@ def train_epoch(model: nn.Module, train_dataloader: DataLoader, args: Namespace,
         optimizer.step()
         if scheduler is not None:
             scheduler.step()
+
+        with torch.no_grad():
+            for param_q, param_k in zip(model.parameters(), ema_model.parameters()):
+                param_k.data.mul_(args.ema_decay).add_((1.0 - args.ema_decay) * param_q.detach().data)
 
         metrics = calculate_metrics(logits, labels, args.metrics)
 
