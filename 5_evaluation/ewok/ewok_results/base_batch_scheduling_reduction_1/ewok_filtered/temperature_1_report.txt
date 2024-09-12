@@ -1,37 +1,37 @@
 TEMPERATURE: 1.00
 
 ### DOMAIN ACCURACY
-material-dynamics: 65.06
-spatial-relations: 54.29
-material-properties: 51.76
-agent-properties: 50.32
-physical-interactions: 48.92
-physical-relations: 48.53
-social-properties: 50.00
-social-relations: 52.00
-physical-dynamics: 53.33
-quantitative-properties: 54.46
-social-interactions: 56.12
+material-dynamics: 71.95
+spatial-relations: 54.90
+material-properties: 55.88
+agent-properties: 50.50
+physical-interactions: 49.82
+physical-relations: 50.49
+social-properties: 53.35
+social-relations: 52.97
+physical-dynamics: 54.17
+quantitative-properties: 55.73
+social-interactions: 57.82
 
 ### CONTEXT TYPE ACCURACY
-direct: 54.79
-indirect: 51.24
+direct: 56.78
+indirect: 52.65
 
 ### CONTEXT CONTRAST ACCURACY
-material: 63.81
-antonym: 51.30
-variable swap: 50.35
-negation: 52.63
-other: 52.24
-game: 50.00
+material: 70.60
+antonym: 52.49
+variable swap: 50.62
+negation: 58.42
+other: 53.47
+game: 55.00
 variable_swap: 46.67
 active-passive: 66.67
-number: 58.75
+number: 61.25
 
 ### TARGET CONTRAST ACCURACY
-concept swap: 54.09
-variable swap: 50.07
+concept swap: 56.62
+variable swap: 50.21
 
 ### AVERAGE ACCURACY
-53.16
+55.23
 
