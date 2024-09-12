@@ -213,7 +213,9 @@ if __name__ == "__main__":
         os.mkdir(args.output_dir / args.model_name)
     if not os.path.exists(args.output_dir / args.model_name / task):
         os.mkdir(args.output_dir / args.model_name / task)
-    args.output_path = args.output_dir / args.model_name / task
+    if not os.path.exists(args.output_dir / args.model_name / task / args.backend):
+        os.mkdir(args.output_dir / args.model_name / task / args.backend)
+    args.output_path = args.output_dir / args.model_name / task / args.backend
 
     tokenizer = Tokenizer.from_file(args.tokenizer_path)
     # tokenizer = AutoTokenizer.from_pretrained(args.model_path_or_name, trust_remote_code=True)
