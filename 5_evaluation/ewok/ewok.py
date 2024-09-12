@@ -112,11 +112,11 @@ def evaluate(model, tokenizer, device, args):
                 if args.backend == "mlm":
                     _, finegrained_ranking = rank_mlm([pair["context1"], pair["context2"], pair["target1"], pair["target2"]], model, tokenizer, device, args.batch_size, temperatures=temperatures)
                 elif args.backend == "causal":
-                    _, finegrained_ranking = rank_causal([pair["good"], pair["bad"]], model, tokenizer, device, args.batch_size, temperatures=temperatures)
+                    _, finegrained_ranking = rank_causal([pair["context1"], pair["context2"], pair["target1"], pair["target2"]], model, tokenizer, device, args.batch_size, temperatures=temperatures)
                 elif args.backend == "mlm_shift":
-                    _, finegrained_ranking = rank_mlm_shift([pair["good"], pair["bad"]], model, tokenizer, device, args.batch_size, temperatures=temperatures)
+                    _, finegrained_ranking = rank_mlm_shift([pair["context1"], pair["context2"], pair["target1"], pair["target2"]], model, tokenizer, device, args.batch_size, temperatures=temperatures)
                 elif args.backend == "fused":
-                    _, finegrained_ranking = rank_fused([pair["good"], pair["bad"]], model, tokenizer, device, args.batch_size, temperatures=temperatures)
+                    _, finegrained_ranking = rank_fused([pair["context1"], pair["context2"], pair["target1"], pair["target2"]], model, tokenizer, device, args.batch_size, temperatures=temperatures)
                 else:
                     raise ValueError(f"Backend {args.backend} is not implemented!")
 
