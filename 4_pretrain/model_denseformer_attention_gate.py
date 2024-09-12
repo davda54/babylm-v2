@@ -64,21 +64,14 @@ class DWAModules(torch.nn.Module):
     def __init__(self, hidden_size, n_blocks):
         super().__init__()
         self.n_blocks = n_blocks
-        self.alphas = nn.ModuleList([
-            nn.Sequential(
-                nn.LayerNorm(hidden_size, 1e-7, elementwise_affine=False),
-                nn.Linear(hidden_size, i + 2, bias=True)
-            )
-            for i in range(n_blocks)
-        ])
+        self.alphas = nn.ParameterList([nn.Parameter(torch.zeros(i + 2)) for i in range(n_blocks)])
         self.accumulator = None
         self._init_weights()
 
     def _init_weights(self):
         for module in self.alphas:
-            module[1].bias.data.zero_()
-            module[1].bias.data[-1] = 1.0
-            module[1].weight.data.zero_()
+            module.data.zero_()
+            module.data[-1] = 1.0
 
     def init_accumulator(self, x):
         self.accumulator = (torch.zeros((self.n_blocks + 1, *x.shape), device=x.device, dtype=x.dtype), None)
@@ -87,11 +80,11 @@ class DWAModules(torch.nn.Module):
     def forward(self, x, block_idx):
         assert self.accumulator is not None, "`init_accumulator(x)` needs to be called first"
         self.accumulator = apply_inplace_set(
-            self.accumulator, 
+            self.accumulator,
             block_idx + 1,
             x
         )
-        x = torch.einsum("tbk,ktbd->tbd", self.alphas[block_idx](x), self.accumulator[1])
+        x = torch.tensordot(self.alphas[block_idx], self.accumulator[1], dims=1)
         return x
 
 
