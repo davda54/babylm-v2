@@ -23,14 +23,14 @@ def train(model: nn.Module, ema_model: nn.Module, train_dataloader: DataLoader, 
     update_best: bool = False
 
     for epoch in range(args.num_epochs):
-        step = train_epoch(model, train_dataloader, args, epoch, step, total_steps, optimizer, scheduler, device, verbose)
+        step = train_epoch(model, ema_model, train_dataloader, args, epoch, step, total_steps, optimizer, scheduler, device, verbose)
 
         if valid_dataloader is not None:
-            metrics = evaluate(model, valid_dataloader, args.metrics, device, verbose)
+            metrics = evaluate(ema_model, valid_dataloader, args.metrics, device, verbose)
             if args.keep_best_model:
                 score: float = metrics[args.metric_for_valid]
                 if compare_scores(best_score, score, args.higher_is_better):
-                    best_model = copy.deepcopy(model)
+                    best_model = copy.deepcopy(ema_model)
                     best_score = score
                     update_best = True
 
@@ -39,12 +39,12 @@ def train(model: nn.Module, ema_model: nn.Module, train_dataloader: DataLoader, 
                 save_model(best_model, args)
                 update_best = False
             else:
-                save_model(model, args)
+                save_model(ema_model, args)
 
     return best_model
 
 
-def train_epoch(model: nn.Module, train_dataloader: DataLoader, args: Namespace, epoch: int, global_step: int, total_steps: int, optimizer: Optimizer, scheduler: LRScheduler | None, device: str, verbose: bool = False) -> int:
+def train_epoch(model: nn.Module, ema_model: nn.Module, train_dataloader: DataLoader, args: Namespace, epoch: int, global_step: int, total_steps: int, optimizer: Optimizer, scheduler: LRScheduler | None, device: str, verbose: bool = False) -> int:
     model.train()
 
     progress_bar = tqdm(initial=global_step, total=total_steps)
