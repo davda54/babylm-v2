@@ -123,9 +123,9 @@ if __name__ == "__main__":
 
     if valid_dataloader is not None:
         metrics, preds = predict_classification(ema_model, valid_dataloader, args.metrics, device, args.verbose)
-        pred_dict = {f"{args.task}": {"prediction": []}}
+        pred_dict = {f"{args.task}": {"predictions": []}}
         for i, pred in enumerate(preds):
-            pred_dict[f"{args.task}"]["prediction"].append({"id": f"{args.task}_{i}", "pred": int(pred)})
+            pred_dict[f"{args.task}"]["predictions"].append({"id": f"{args.task}_{i}", "pred": int(pred)})
         with (output_path / "results.txt").open("w") as file:
             file.write("\n".join([f"{key}: {value}" for key, value in metrics.items()]))
         with (output_path / "predictions.json").open("w") as file:
