@@ -27,7 +27,7 @@ def rank_mlm(sentences, model, tokenizer, device, batch_size, temperatures=None)
 
     sentences = [torch.tensor(tokenizer.encode(s, add_special_tokens=False).ids) for s in sentences]
     context_sentences = torch.tensor(tokenizer.encode(context_sentences, add_special_tokens=False).ids)
-    context_length = context_sentences.size(0)
+    context_length = 0
     # sentences = [tokenizer(s, add_special_tokens=False, return_tensors="pt").input_ids.squeeze(0) for s in sentences]
 
     if temperatures is None:
@@ -100,7 +100,7 @@ def rank_causal(sentences, model, tokenizer, device, batch_size, temperatures=No
 
     sentences = [torch.tensor(tokenizer.encode(s, add_special_tokens=False).ids) for s in sentences]
     context_sentences = torch.tensor(tokenizer.encode(context_sentences, add_special_tokens=False).ids)
-    context_length = context_sentences.size(0)
+    context_length = 0
     # sentences = [tokenizer(s, add_special_tokens=False, return_tensors="pt").input_ids.squeeze(0) for s in sentences]
 
     if temperatures is None:
@@ -110,7 +110,7 @@ def rank_causal(sentences, model, tokenizer, device, batch_size, temperatures=No
 
     def prepare(tokens, padding: int):
         input_ids = torch.cat([cls_index, tokens, torch.full((padding,), fill_value=pad_index)]).to(device)
-        attention_mask = torch.ones(input_ids.size(0), input_ids.size(0), dtype=torch.bool).triu(diagonal=1)
+        attention_mask = torch.ones(input_ids.size(0), input_ids.size(0), dtype=torch.bool, device=device).triu(diagonal=1)
         return input_ids, attention_mask
 
     max_length = max(s.size(0) for s in sentences)
@@ -129,14 +129,9 @@ def rank_causal(sentences, model, tokenizer, device, batch_size, temperatures=No
         log_p = log_p.gather(index=labels, dim=-1).squeeze(-1)
         return log_p
 
-    total_score = torch.cat([calc_log_p(logit[indices[i]], labels[i], temperatures) for i, logit in enumerate(logits)])
-
-    log_ps, offset = [], 0
-    for i in range(len(sentences)):
-        from_index = offset
-        to_index = offset + (sentences[i].size(0) - context_length)
-        log_ps.append(total_score[:, from_index:to_index].sum(-1))
-        offset = to_index
+    log_ps = []
+    for i, logit in enumerate(logits):
+        log_ps.append(calc_log_p(logit[indices[i]], labels[i], temperatures).sum(-1))
 
     ranking = torch.argsort(torch.stack(log_ps, dim=1), dim=1, descending=True).tolist()
     return ranking[int(1.0 / 0.05)], ranking
@@ -160,7 +155,7 @@ def rank_mlm_shift(sentences, model, tokenizer, device, batch_size, temperatures
 
     sentences = [torch.tensor(tokenizer.encode(s, add_special_tokens=False).ids) for s in sentences]
     context_sentences = torch.tensor(tokenizer.encode(context_sentences, add_special_tokens=False).ids)
-    context_length = context_sentences.size(0)
+    context_length = 0
     # sentences = [tokenizer(s, add_special_tokens=False, return_tensors="pt").input_ids.squeeze(0) for s in sentences]
 
     if temperatures is None:
@@ -171,7 +166,7 @@ def rank_mlm_shift(sentences, model, tokenizer, device, batch_size, temperatures
     def prepare(tokens, context_length, padding: int):
         tokens = torch.cat([cls_index, tokens, torch.full((padding,), fill_value=pad_index)]).to(device)
         tokens = tokens.repeat(tokens.size(0) - context_length - 1 - padding, 1)
-        mask = torch.eye(tokens.size(1), device=device).bool()[1:(-padding if padding > 0 else None), :]
+        mask = torch.eye(tokens.size(1), device=device).bool()[context_length + 1:(-padding if padding > 0 else None), :]
         input_ids = tokens.masked_fill(mask, value=mask_index)
         attention_mask = torch.zeros_like(input_ids, dtype=torch.bool)
         attention_mask[:, attention_mask.size(-1) - padding:] = True
@@ -235,17 +230,17 @@ def rank_fused(sentences, model, tokenizer, device, batch_size, temperatures=Non
 
     sentences = [torch.tensor(tokenizer.encode(s, add_special_tokens=False).ids) for s in sentences]
     context_sentences = torch.tensor(tokenizer.encode(context_sentences, add_special_tokens=False).ids)
-    context_length = context_sentences.size(0)
+    context_length = 0
     # sentences = [tokenizer(s, add_special_tokens=False, return_tensors="pt").input_ids.squeeze(0) for s in sentences]
 
     if temperatures is None:
         temperatures = torch.ones(1, device=device)
 
-    labels = torch.cat([s[context_length:] for s in sentences]).unsqueeze(-1).expand(temperatures.size(0), -1, -1).to(device)
+    labels = [s[context_length:].unsqueeze(-1).expand(temperatures.size(0), -1, -1).to(device) for i, s in enumerate(sentences)]
 
     def prepare(tokens, padding: int):
         input_ids = torch.cat([cls_index, tokens, torch.full((padding,), fill_value=pad_index)]).to(device)
-        attention_mask = torch.ones(input_ids.size(0), input_ids.size(0), dtype=torch.bool).triu(diagonal=1)
+        attention_mask = torch.ones(input_ids.size(0), input_ids.size(0), dtype=torch.bool, device=device).triu(diagonal=1)
         return input_ids, attention_mask
 
     max_length = max(s.size(0) for s in sentences)
@@ -275,7 +270,7 @@ def rank_fused(sentences, model, tokenizer, device, batch_size, temperatures=Non
     def prepare_mlm(tokens, context_length, padding: int):
         tokens = torch.cat([cls_index, tokens, torch.full((padding,), fill_value=pad_index)]).to(device)
         tokens = tokens.repeat(tokens.size(0) - context_length - 1 - padding, 1)
-        mask = torch.eye(tokens.size(1), device=device).bool()[1:(-padding if padding > 0 else None), :]
+        mask = torch.eye(tokens.size(1), device=device).bool()[context_length + 1:(-padding if padding > 0 else None), :]
         input_ids = tokens.masked_fill(mask, value=mask_index)
         attention_mask = torch.zeros_like(input_ids, dtype=torch.bool)
         attention_mask[:, attention_mask.size(-1) - padding:] = True
